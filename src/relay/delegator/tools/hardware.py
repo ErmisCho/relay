@@ -7,9 +7,11 @@ protocol — there is no artifact to dispatch for "what can my machine run".
 
 from __future__ import annotations
 
+import asyncio
 import ctypes
 import os
 import platform
+import subprocess
 import sys
 from typing import Any
 
@@ -18,8 +20,42 @@ from relay.delegator.contracts import ToolContext, ToolResult
 _GIB = 1024**3
 
 
+def _sysctl(key: str) -> str | None:
+    """Read a fixed Darwin hardware key; never invoke a shell or wait indefinitely."""
+    try:
+        return (
+            subprocess.check_output(
+                ["/usr/sbin/sysctl", "-n", key],
+                text=True,
+                stderr=subprocess.DEVNULL,
+                timeout=0.5,
+            ).strip()
+            or None
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def chip_name() -> str:
+    """Prefer the actual Mac chip name over platform.processor()'s generic 'arm'."""
+    if sys.platform == "darwin":
+        brand = _sysctl("machdep.cpu.brand_string")
+        if brand:
+            return brand
+    return platform.processor() or platform.machine() or "unknown chip"
+
+
 def total_memory_bytes() -> int | None:
     """Best-effort total physical memory in bytes, or ``None`` if it can't be read."""
+    if sys.platform == "darwin":
+        value = _sysctl("hw.memsize")
+        if value:
+            try:
+                size = int(value)
+                if size > 0:
+                    return size
+            except ValueError:
+                pass
     sysconf = getattr(os, "sysconf", None)
     if sysconf is not None:
         try:
@@ -47,7 +83,8 @@ def _windows_total_memory_bytes() -> int | None:
 
     stat = MEMORYSTATUSEX()
     stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
-    if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+    windll = getattr(ctypes, "windll", None)
+    if windll is not None and windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
         return int(stat.ullTotalPhys)
     return None
 
@@ -79,8 +116,9 @@ class HardwareCapabilitiesTool:
 
     name = "hardware_capabilities"
     description = (
-        "Report this machine's hardware profile (chip, memory) and recommend which local LLMs "
-        "fit it."
+        "Read the CPU/chip and physical RAM of the machine running Relay's backend. "
+        "Use for questions about this PC's specs, hardware, processor, memory, or which "
+        "local LLMs fit. Does not inspect a separate phone or remote client."
     )
     parameters: dict[str, Any] = {
         "type": "object",
@@ -89,14 +127,17 @@ class HardwareCapabilitiesTool:
     }
 
     async def __call__(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-        chip = platform.processor() or platform.machine() or "unknown chip"
-        mem_bytes = total_memory_bytes()
+        # A subprocess probe must not block the audio/session event loop.
+        chip, mem_bytes = await asyncio.gather(
+            asyncio.to_thread(chip_name), asyncio.to_thread(total_memory_bytes)
+        )
         if mem_bytes is None:
             return ToolResult(
-                f"This machine reports a {chip} chip, but I can't read its memory size here."
+                f"The machine running Relay reports a {chip} chip, "
+                "but I can't read its memory size here."
             )
         total_gb = mem_bytes / _GIB
         return ToolResult(
-            f"This machine has a {chip} chip with about {total_gb:.0f} GB of memory. "
-            + recommend_models(total_gb)
+            f"The machine running Relay has a {chip} chip "
+            f"with about {total_gb:.0f} GB of memory. " + recommend_models(total_gb)
         )
