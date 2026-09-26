@@ -13,6 +13,7 @@ from relay.delegator.app import create_app
 from relay.delegator.contracts import SessionStore, ToolContext, ToolRegistry, ToolResult
 from relay.delegator.llm import ChatDelta, ToolCallDelta
 from relay.delegator.service import MAX_TOOL_ROUNDS
+from relay.delegator.wiring import build_registry
 
 from .conftest import ScriptedChatModel, load_request, make_settings, parse_sse, post, text
 
@@ -99,6 +100,25 @@ async def test_internal_tool_runs_server_side_and_never_streams(
     chunks = parse_sse(body)
     assert "".join(c["choices"][0]["delta"].get("content", "") for c in chunks) == "Found it."
     assert chunks[-1]["choices"][0]["finish_reason"] == "stop"
+
+
+async def test_wiring_registers_hardware_and_weather_tools(
+    dead_db: async_sessionmaker[AsyncSession],
+) -> None:
+    """The real ``build_registry()`` wiring exposes both new tools end-to-end, not just a
+    hand-built ``ToolRegistry`` in a unit test."""
+    registry = build_registry()
+    model = ScriptedChatModel([tool_call("hardware_capabilities", "{}"), text("Got it.")])
+    app = create_app(
+        make_settings(), chat_model=model, registry=registry, hooks=[], sessionmaker=dead_db
+    )
+    resp = await post(app, load_request())
+
+    assert resp.status_code == 200
+    tool_names = {t["function"]["name"] for t in model.calls[0]["tools"]}
+    assert {"hardware_capabilities", "get_weather", "get_status"} <= tool_names
+    result = model.calls[1]["messages"][-1]
+    assert result["role"] == "tool" and result["content"]
 
 
 async def test_invalid_internal_tool_arguments_are_reported_to_the_model(

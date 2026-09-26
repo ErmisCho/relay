@@ -1,9 +1,4 @@
-"""Composition root for the Delegator's internal tools and turn hooks.
-
-Owned by the coordinator. Each feature module exposes its tools/hooks and is
-registered here; the Delegator app only ever calls ``build_registry`` and
-``build_hooks``.
-"""
+"""Composition root for the Delegator's internal tools and turn hooks."""
 
 from __future__ import annotations
 
@@ -13,34 +8,29 @@ from relay.delegator.hooks.ideas import IdeaSummaryHook
 from relay.delegator.hooks.reports import ReportsHook
 from relay.delegator.hooks.router import RouterHook
 from relay.delegator.hooks.scope import ScopeHook
+from relay.delegator.tools.hardware import HardwareCapabilitiesTool
 from relay.delegator.tools.ideas import FocusIdeaTool, LinkIdeasTool, RecallTool
 from relay.delegator.tools.status import GetStatusTool
+from relay.delegator.tools.weather import GetWeatherTool
 
 
 def build_registry() -> ToolRegistry:
     """Return the internal tools available to the upstream model."""
     registry = ToolRegistry()
-    registry.register(GetStatusTool())
-    registry.register(RecallTool())
-    registry.register(FocusIdeaTool())
-    registry.register(LinkIdeasTool())
-    registry.register(ProposeCommitmentTool())
-    registry.register(DispatchTaskTool())
+    for tool in (
+        GetStatusTool(),
+        HardwareCapabilitiesTool(),
+        GetWeatherTool(),
+        RecallTool(),
+        FocusIdeaTool(),
+        LinkIdeasTool(),
+        ProposeCommitmentTool(),
+        DispatchTaskTool(),
+    ):
+        registry.register(tool)
     return registry
 
 
 def build_hooks() -> list[TurnHook]:
-    """Return the turn hooks, in the order they run.
-
-    ScopeHook goes first so any refusal note leads the per-turn notes;
-    CommitmentHook next, so the assent decision is made before other hooks' notes.
-    RouterHook adds no notes; it starts the shadow routers after the response.
-    """
-    hooks: list[TurnHook] = [
-        ScopeHook(),
-        CommitmentHook(),
-        ReportsHook(),
-        IdeaSummaryHook(),
-        RouterHook(),
-    ]
-    return hooks
+    """Return turn hooks in safety-first order."""
+    return [ScopeHook(), CommitmentHook(), ReportsHook(), IdeaSummaryHook(), RouterHook()]
