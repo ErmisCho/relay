@@ -9,13 +9,17 @@ from __future__ import annotations
 
 from relay.delegator.contracts import ToolRegistry, TurnHook
 from relay.delegator.hooks.reports import ReportsHook
+from relay.delegator.tools.hardware import HardwareCapabilitiesTool
 from relay.delegator.tools.status import GetStatusTool
+from relay.delegator.tools.weather import GetWeatherTool
 
 
 def build_registry() -> ToolRegistry:
     """Return the internal tools available to the upstream model."""
     registry = ToolRegistry()
     registry.register(GetStatusTool())
+    registry.register(HardwareCapabilitiesTool())
+    registry.register(GetWeatherTool())
     return registry
 
 
