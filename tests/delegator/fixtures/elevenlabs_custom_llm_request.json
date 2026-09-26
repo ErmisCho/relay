@@ -1,0 +1,34 @@
+{
+  "model": "relay-delegator",
+  "messages": [
+    {"role": "system", "content": "You are relay, a voice-first thinking partner. Keep answers short and speakable."},
+    {"role": "assistant", "content": "Hey, what's on your mind?"},
+    {"role": "user", "content": "I have an idea for a bike lock."},
+    {"role": "assistant", "content": "Nice. What makes it different?"},
+    {"role": "user", "content": "It unlocks when my phone is nearby."}
+  ],
+  "temperature": 0.5,
+  "max_tokens": 300,
+  "stream": true,
+  "stream_options": {"include_usage": false},
+  "tool_choice": "auto",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "end_call",
+        "description": "Gracefully end the call when the user says goodbye.",
+        "parameters": {
+          "type": "object",
+          "properties": {"reason": {"type": "string", "description": "Why the call is ending."}},
+          "required": ["reason"]
+        }
+      }
+    }
+  ],
+  "user_id": "user_7f3c",
+  "elevenlabs_extra_body": {
+    "session_id": "7b1d3a52-4c1e-4f7e-9a51-3f2b8c9d0e11",
+    "conversation_id": "conv_01jx9k2m4n5p6q7r8s9t0v1w2x"
+  }
+}

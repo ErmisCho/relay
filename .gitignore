@@ -34,3 +34,6 @@ build/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# Research executor output (local artifacts)
+artifacts/

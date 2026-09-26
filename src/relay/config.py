@@ -22,14 +22,21 @@ PROVIDERS: tuple[Provider, ...] = ("ollama", "openai", "anthropic")
 def parse_model_ref(ref: str) -> tuple[Provider, str]:
     """Split `<provider>:<model>` on the FIRST colon (model names may contain colons).
 
+    A ref without a known provider prefix is a bare Ollama model name, which is
+    what `ollama list` prints:
+
     >>> parse_model_ref("ollama:gemma4:e4b")
     ('ollama', 'gemma4:e4b')
+    >>> parse_model_ref("qwen3.8:latest")
+    ('ollama', 'qwen3.8:latest')
     """
+    if not ref.strip():
+        raise ValueError("model ref must not be empty")
     provider, sep, model = ref.partition(":")
+    if provider not in PROVIDERS:
+        return "ollama", ref
     if not sep or not model:
         raise ValueError(f"model ref {ref!r} must look like '<provider>:<model>'")
-    if provider not in PROVIDERS:
-        raise ValueError(f"unknown provider {provider!r} in {ref!r}; expected one of {PROVIDERS}")
     return provider, model
 
 
@@ -76,7 +83,7 @@ class Settings(BaseSettings):
     assent_model: str = "ollama:gemma4:e4b"
     ready_model: str = "ollama:gemma4:e4b"
     summary_model: str = "ollama:gemma4:e4b"
-    research_model: str = "ollama:glm-4.7-flash"
+    research_model: str = "ollama:qwen3.8:latest"
     research_fallback_model: str = "ollama:gemma4:e4b"
 
     # --- Delegator / voice -----------------------------------------------------------------
@@ -113,8 +120,9 @@ class Settings(BaseSettings):
     @field_validator(*_MODEL_FIELDS)
     @classmethod
     def _check_model_ref(cls, value: str) -> str:
-        parse_model_ref(value)
-        return value
+        # Normalise bare Ollama names to `ollama:<name>` so readers see one form.
+        provider, model = parse_model_ref(value)
+        return f"{provider}:{model}"
 
     @property
     def sync_database_url(self) -> str:

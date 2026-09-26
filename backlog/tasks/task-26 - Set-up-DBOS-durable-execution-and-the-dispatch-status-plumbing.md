@@ -1,10 +1,11 @@
 ---
 id: TASK-26
 title: Set up DBOS durable execution and the dispatch/status plumbing
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@claude'
 created_date: '2026-09-26 13:09'
-updated_date: '2026-09-26 13:39'
+updated_date: '2026-09-26 14:55'
 labels:
   - phase-1
   - executor
@@ -37,9 +38,32 @@ Dispatch must return immediately so the conversation continues uninterrupted, an
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Dispatching a task returns within 200 ms with a workflow id persisted in `tasks.dbos_workflow_id`
-- [ ] #2 Killing the executor process mid-workflow and restarting it resumes the workflow to completion
-- [ ] #3 Dispatching the same commitment twice does not start two workflows
-- [ ] #4 A completed task is announced on the next agent turn after completion, not mid-response, and the artifact row exists regardless
-- [ ] #5 If the user barges in during a completion announcement, the report stays pending and is re-offered briefly at the next turn boundary (decision-3)
+- [x] #1 Dispatching a task returns within 200 ms with a workflow id persisted in `tasks.dbos_workflow_id`
+- [x] #2 Killing the executor process mid-workflow and restarting it resumes the workflow to completion
+- [x] #3 Dispatching the same commitment twice does not start two workflows
+- [x] #4 A completed task is announced on the next agent turn after completion, not mid-response, and the artifact row exists regardless
+- [x] #5 If the user barges in during a completion announcement, the report stays pending and is re-offered briefly at the next turn boundary (decision-3)
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. executor worker process (FastAPI lifespan, DBOS.launch, queue) separate from the Delegator; DBOS system DB set explicitly.
+2. dispatch.start_task(commitment_id, kind): tasks row + DBOSClient enqueue with deterministic workflow id task-<id>; idempotent per commitment; <200 ms.
+3. Generic durable task workflow: status queued→running→succeeded|failed in steps, per-kind runner registry, artifact row + ideas.status=delivered + pending_report on success.
+4. get_status internal tool (tasks joined with DBOS workflow status).
+5. Pending-report TurnHook: offer at next turn boundary, confirm delivery from the next request's history, re-offer if interrupted (decision-3).
+6. Tests incl. kill -9 / restart resume, double dispatch, <200 ms, report delivery + barge-in re-offer.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-26 W2: executor worker process (python -m relay.executor) launches DBOS 3.1 with system tables in the app DB's dbos schema (no separate _dbos_sys DB), application_version pinned (relay-1). dispatch.start_task: commitment row FOR UPDATE + deterministic workflow id task-<id> + return-existing → idempotent; DBOSClient only on the Delegator side (async, failure-cached, warmed at Delegator startup). Generic run_task workflow with retrying idempotent DB steps; runner registry (register_runner; research runner module to be added to BUILTIN_RUNNER_MODULES). Orphaned queued tasks reconciled on worker startup. ReportsHook: offers only on user turns; delivery confirmed by exact normalised-prefix match of generated text vs ElevenLabs-recorded assistant text; interrupted → brief re-offer, capped at 2 (decision-3). Evidence: tests/executor — dispatch <200 ms, SIGKILL mid-workflow + restart resumes, double dispatch → one workflow, next-turn announcement, barge-in re-offer, failure → failed, get_status tool, orphan reconcile. Review: 2 rounds, verdict PROCEED.
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+DBOS durable execution in a separate executor worker; idempotent sub-200 ms dispatch via DBOSClient; retrying idempotent workflow steps with artifact + idea delivered + pending report; get_status tool; completion reports announced at the next turn boundary and re-offered after barge-in. Verified by tests against real Postgres incl. SIGKILL/restart and double dispatch.
+<!-- SECTION:FINAL_SUMMARY:END -->
