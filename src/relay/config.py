@@ -83,7 +83,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
 
     # Model refs: "<provider>:<model>", provider in {ollama, openai, anthropic}.
-    delegator_model: str = "ollama:gemma4:e4b"
+    delegator_model: str = "ollama:qwen3:30b-a3b-instruct-2507-q4_K_M"
     delegator_fallback_model: str = "ollama:gemma4:e4b"
     assent_model: str = "ollama:gemma4:e4b"
     ready_model: str = "ollama:gemma4:e4b"

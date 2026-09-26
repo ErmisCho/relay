@@ -162,7 +162,12 @@ def test_http_error_routes_hard(fake: FakeRouter) -> None:
 
 
 def test_unreachable_router_routes_hard() -> None:
-    s = Settings(ollama_base_url="http://127.0.0.1:9/v1", router_timeout_s=0.5)
+    # router_model pinned: a developer .env may point it at a frontier model instead.
+    s = Settings(
+        ollama_base_url="http://127.0.0.1:9/v1",
+        router_model="ollama:gemma4:e4b",
+        router_timeout_s=0.5,
+    )
     d = classify_difficulty(GOAL, "", s)
     assert (d.difficulty, d.valid, d.status) == ("hard", False, "error")
 
