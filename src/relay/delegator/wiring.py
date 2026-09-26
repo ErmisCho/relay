@@ -11,6 +11,7 @@ from relay.delegator.commitment import CommitmentHook, DispatchTaskTool, Propose
 from relay.delegator.contracts import ToolRegistry, TurnHook
 from relay.delegator.hooks.ideas import IdeaSummaryHook
 from relay.delegator.hooks.reports import ReportsHook
+from relay.delegator.hooks.router import RouterHook
 from relay.delegator.hooks.scope import ScopeHook
 from relay.delegator.tools.ideas import FocusIdeaTool, LinkIdeasTool, RecallTool
 from relay.delegator.tools.status import GetStatusTool
@@ -33,6 +34,13 @@ def build_hooks() -> list[TurnHook]:
 
     ScopeHook goes first so any refusal note leads the per-turn notes;
     CommitmentHook next, so the assent decision is made before other hooks' notes.
+    RouterHook adds no notes; it starts the shadow routers after the response.
     """
-    hooks: list[TurnHook] = [ScopeHook(), CommitmentHook(), ReportsHook(), IdeaSummaryHook()]
+    hooks: list[TurnHook] = [
+        ScopeHook(),
+        CommitmentHook(),
+        ReportsHook(),
+        IdeaSummaryHook(),
+        RouterHook(),
+    ]
     return hooks

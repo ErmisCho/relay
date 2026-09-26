@@ -67,6 +67,7 @@ _MODEL_FIELDS = (
     "research_easy_model",
     "research_hard_model",
     "research_hard_fallback_model",
+    "router_llm_model",
 )
 
 
@@ -108,6 +109,21 @@ class Settings(BaseSettings):
     research_hard_model: str = "openai:gpt-6-luna"
     research_hard_fallback_model: str = "ollama:qwen3.8:latest"
 
+    # --- Per-turn router (TASK-36/41; SPEC section 2) ---------------------------------------
+    # ROUTER_SHADOW: comma list of backends (e.g. "laya,llm") run after each response for
+    # logging only (``router_decisions.is_active=false``). ROUTER_ACTIVE: the backend that will
+    # drive routing; only read so far, acting on it is TASK-37 ("none" = frontier only).
+    router_shadow: Annotated[list[str], NoDecode] = []
+    router_active: Literal["none", "laya", "llm"] = "none"
+    # Zero-shot LLM router backend: never the frontier model itself. "ollama:<model>" calls
+    # Ollama /api/chat with a JSON-schema format; openai:/anthropic: use a pydantic-ai Agent.
+    router_llm_model: str = "ollama:gemma4:e4b"
+    router_llm_timeout_ms: int = 2000
+    # Earlier turns given to the LLM router as context, bounded in count and characters
+    # (~4 chars/token, so 4000 chars is about 1k tokens).
+    router_llm_context_turns: int = 6
+    router_llm_context_chars: int = 4000
+
     # --- Delegator / voice -----------------------------------------------------------------
     delegator_shared_secret: str = "dev-secret-change-me"
     delegator_public_url: str = "http://localhost:8000"
@@ -141,6 +157,13 @@ class Settings(BaseSettings):
     def _split_kinds(cls, value: object) -> object:
         if isinstance(value, str):
             return [k.strip() for k in value.split(",") if k.strip()]
+        return value
+
+    @field_validator("router_shadow", mode="before")
+    @classmethod
+    def _split_router_shadow(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [b.strip().lower() for b in value.split(",") if b.strip()]
         return value
 
     @field_validator("enabled_kinds")
