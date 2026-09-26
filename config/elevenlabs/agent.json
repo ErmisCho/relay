@@ -1,0 +1,52 @@
+{
+  "name": "relay",
+  "tags": [
+    "relay"
+  ],
+  "conversation_config": {
+    "agent": {
+      "first_message": "Hey, I'm listening. What are you thinking about?",
+      "language": "en",
+      "dynamic_variables": {
+        "dynamic_variable_placeholders": {
+          "session_id": "unset"
+        }
+      },
+      "prompt": {
+        "prompt": "You are relay, a voice thinking partner. Keep replies short and spoken-friendly. Your real instructions, scope and commitment rules come from the relay Delegator, which is your language model; follow them. When the user says goodbye or asks to stop, call end_call.",
+        "llm": "custom-llm",
+        "custom_llm": {
+          "url": "${DELEGATOR_PUBLIC_URL}/v1",
+          "api_type": "chat_completions",
+          "api_key": {
+            "secret_id": "${DELEGATOR_SECRET_ID}"
+          }
+        },
+        "built_in_tools": {
+          "end_call": {
+            "type": "system",
+            "name": "end_call",
+            "description": "End the call when the user says goodbye, asks to stop, or the conversation is clearly over.",
+            "params": {
+              "system_tool_type": "end_call"
+            }
+          }
+        }
+      }
+    },
+    "tts": {
+      "model_id": "eleven_flash_v2_5"
+    },
+    "turn": {
+      "silence_end_call_timeout": "${SILENCE_TIMEOUT_S}"
+    }
+  },
+  "platform_settings": {
+    "overrides": {
+      "custom_llm_extra_body": true
+    },
+    "auth": {
+      "enable_auth": true
+    }
+  }
+}

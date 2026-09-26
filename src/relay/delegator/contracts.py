@@ -166,6 +166,19 @@ class TurnContext:
     user_turn_id: uuid.UUID | None = None
 
 
+@runtime_checkable
+class SystemPrefixProvider(Protocol):
+    """Optional extra for a TurnHook: static instructions for the fixed prompt prefix.
+
+    The text must not change from turn to turn. The Delegator places it right after
+    the conversation's leading system message(s), where it stays in the local
+    model's prompt cache. Per-turn notes from ``before_model`` go next to the latest
+    user message instead, and should be short.
+    """
+
+    def system_prefix(self, settings: Settings) -> str: ...
+
+
 class TurnHook(Protocol):
     """Runs around every user turn, in registration order."""
 

@@ -1,9 +1,11 @@
 ---
 id: TASK-23
 title: Integrate the ElevenLabs Agent voice loop behind a swappable interface
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-09-26 13:09'
+updated_date: '2026-09-26 16:19'
 labels:
   - phase-1
   - voice
@@ -38,10 +40,22 @@ ElevenLabs Agents owns STT, VAD, turn-taking, barge-in and streaming TTS — the
 - [ ] #1 Starting a `VoiceSession` connects to the configured Agent and a spoken exchange round-trips through the Delegator
 - [ ] #2 Barge-in interrupts agent speech mid-sentence
 - [ ] #3 The `session_id` passed by the client appears on the corresponding `sessions`/`turns` rows
-- [ ] #4 No module outside `ElevenLabsVoiceSession` imports the ElevenLabs SDK
+- [x] #4 No module outside `ElevenLabsVoiceSession` imports the ElevenLabs SDK
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Agent configuration is versioned in the repo, not only in the ElevenLabs dashboard
+- [x] #1 Agent configuration is versioned in the repo, not only in the ElevenLabs dashboard
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+VoiceSession protocol + ElevenLabsVoiceSession (only SDK importer), session_id as dynamic variable/extra body, mic released on end, last_activity_ts; versioned agent config JSON + apply script (custom LLM → Delegator URL + secret, Flash v2.5, end_call, silence timeout); tests with a fake SDK; live round-trip/barge-in left for live verification.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-26 W3: VoiceSession protocol + ElevenLabsVoiceSession (only SDK importer; websocket transport — the Python SDK has no WebRTC), sounddevice AudioInterface with a sender thread off the PortAudio callback, per-start tokens + SDK-thread death watcher so on_end fires exactly once on every end path, agent.json versioned (custom LLM, Flash v2.5, end_call, silence timeout, custom_llm_extra_body, auth.enable_auth=true so only signed sessions start), apply script dry-run default and refusing the dev secret/localhost. Delegator accepts /v1/chat/completions, /chat/completions, /v1/v1/chat/completions and /v1 since ElevenLabs' URL convention is undocumented (docs/elevenlabs-localhost-connectivity.md). Evidence: 16 offline client tests incl. real-SDK connect failure. OPEN (live): AC#1 round trip, AC#2 barge-in, AC#3 session_id end-to-end through ElevenLabs. Use ngrok on port 8000 (Cloudflare quick tunnels don't support SSE).
+<!-- SECTION:NOTES:END -->

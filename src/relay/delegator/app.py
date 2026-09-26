@@ -23,6 +23,12 @@ from relay.store.db import create_engine, create_sessionmaker
 log = logging.getLogger(__name__)
 
 SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+CHAT_COMPLETIONS_PATHS = (
+    "/v1/chat/completions",
+    "/chat/completions",
+    "/v1/v1/chat/completions",
+    "/v1",
+)
 
 
 def create_app(
@@ -78,18 +84,26 @@ def create_app(
     async def healthz() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.post(
-        "/v1/chat/completions",
-        dependencies=[Depends(bearer_auth(settings.delegator_shared_secret))],
-        response_model=None,
-    )
     async def chat_completions(body: ChatCompletionRequest, request: Request) -> Response:
         received_at = time.perf_counter()
+        log.info("delegator: chat request on %s", request.url.path)
         turn = await service.prepare(body, request.headers, received_at)
         if not body.stream:
             return JSONResponse(await service.complete(turn))
         return StreamingResponse(
             service.stream_sse(turn), media_type="text/event-stream", headers=SSE_HEADERS
+        )
+
+    # ElevenLabs' docs don't say whether the custom-LLM "Server URL" is a base URL it
+    # appends /chat/completions (or /v1/chat/completions) to, or the full endpoint.
+    # Serve every interpretation; the request log above shows which one it uses.
+    for path in CHAT_COMPLETIONS_PATHS:
+        app.add_api_route(
+            path,
+            chat_completions,
+            methods=["POST"],
+            dependencies=[Depends(bearer_auth(settings.delegator_shared_secret))],
+            response_model=None,
         )
 
     return app

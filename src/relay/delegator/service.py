@@ -32,6 +32,7 @@ from relay.delegator.adapters.openai_compat import (
 )
 from relay.delegator.contracts import (
     SessionStore,
+    SystemPrefixProvider,
     ToolContext,
     ToolRegistry,
     TurnContext,
@@ -168,6 +169,28 @@ class _Turn:
     completed: bool = False
 
 
+def _last_user_index(messages: list[dict[str, Any]]) -> int | None:
+    return next(
+        (i for i in range(len(messages) - 1, -1, -1) if messages[i].get("role") == "user"),
+        None,
+    )
+
+
+def _with_system_prefix(messages: list[dict[str, Any]], prefix: str) -> list[dict[str, Any]]:
+    """Insert static instructions right after the leading system message(s).
+
+    That position is identical on every request of a conversation, so the local
+    model reuses its prompt cache; notes placed before the latest user message
+    instead force the whole tail to be re-processed each turn (~1 s on gemma4).
+    """
+    if not prefix:
+        return list(messages)
+    at = 0
+    while at < len(messages) and messages[at].get("role") == "system":
+        at += 1
+    return [*messages[:at], {"role": "system", "content": prefix}, *messages[at:]]
+
+
 def _followup_tool_choice(tool_choice: Any) -> Any:
     """``tool_choice`` for rounds after an internal tool call.
 
@@ -218,19 +241,45 @@ class DelegatorService:
         )
 
     async def drain(self, timeout: float = DRAIN_TIMEOUT_S) -> None:
-        """Wait (bounded) for detached turn finalisation; call on shutdown."""
-        if not self._background:
-            return
-        _, pending = await asyncio.wait(set(self._background), timeout=timeout)
-        if pending:
-            log.warning(
-                "delegator: abandoning %d unfinished turn finalisations after %.0fs: %s",
-                len(pending),
-                timeout,
-                sorted(t.get_name() for t in pending),
-            )
-            for task in pending:
-                task.cancel()
+        """Wait (bounded) for detached turn finalisation, then for hooks' own work.
+
+        Call on shutdown, before the engine is disposed. Finalisation runs first
+        because ``after_response`` may start hook background work (e.g. summaries).
+        """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        if self._background:
+            _, pending = await asyncio.wait(set(self._background), timeout=timeout)
+            if pending:
+                log.warning(
+                    "delegator: abandoning %d unfinished turn finalisations after %.0fs: %s",
+                    len(pending),
+                    timeout,
+                    sorted(t.get_name() for t in pending),
+                )
+                for task in pending:
+                    task.cancel()
+        for hook in self.hooks:
+            hook_drain = getattr(hook, "drain", None)
+            if hook_drain is None:
+                continue
+            remaining = max(deadline - loop.time(), 0.1)
+            try:
+                await asyncio.wait_for(hook_drain(), remaining)
+            except TimeoutError:
+                log.warning("delegator: %s.drain() timed out", type(hook).__name__)
+            except Exception:
+                log.exception("delegator: %s.drain() failed", type(hook).__name__)
+
+    def _system_prefix(self) -> str:
+        parts: list[str] = []
+        for hook in self.hooks:
+            if isinstance(hook, SystemPrefixProvider):
+                try:
+                    parts.append(hook.system_prefix(self.settings))
+                except Exception:
+                    log.exception("delegator: hook %r system_prefix failed", hook)
+        return "\n\n".join(p for p in parts if p)
 
     async def _await_previous_turn(self, session_id: uuid.UUID) -> None:
         previous = self._finalizing.get(session_id)
@@ -278,10 +327,7 @@ class DelegatorService:
         await self._await_previous_turn(session_id)
         state = self.session_store.get(session_id)
         messages = list(body.messages)
-        user_idx = next(
-            (i for i in range(len(messages) - 1, -1, -1) if messages[i].get("role") == "user"),
-            None,
-        )
+        user_idx = _last_user_index(messages)
         user_text = content_text(messages[user_idx].get("content")) if user_idx is not None else ""
 
         user_turn_id: uuid.UUID | None = None
@@ -315,9 +361,11 @@ class DelegatorService:
                 notes.extend(await hook.before_model(ctx))
             except Exception:
                 log.exception("delegator: hook %r before_model failed", hook)
+        upstream = _with_system_prefix(messages, self._system_prefix())
+        user_idx = _last_user_index(upstream)
         note_messages = [{"role": "system", "content": n} for n in notes if n]
-        insert_at = user_idx if user_idx is not None else len(messages)
-        upstream = messages[:insert_at] + note_messages + messages[insert_at:]
+        insert_at = user_idx if user_idx is not None else len(upstream)
+        upstream = upstream[:insert_at] + note_messages + upstream[insert_at:]
 
         internal_tools = self.registry.openai_tools()
         external_tools = [

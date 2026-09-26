@@ -29,8 +29,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 TASK_RUNNER_MODULES_ENV = "EXECUTOR_RUNNER_MODULES"
-# Later tasks append their runner modules here (e.g. "relay.executor.research").
-BUILTIN_RUNNER_MODULES: tuple[str, ...] = ()
+# Built-in runner modules, imported by every worker before any EXECUTOR_RUNNER_MODULES.
+BUILTIN_RUNNER_MODULES: tuple[str, ...] = ("relay.executor.research",)
 
 
 @dataclass(frozen=True)
