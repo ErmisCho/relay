@@ -70,14 +70,25 @@ class ResearchWorker(Worker):
         raise RuntimeError(f"worker never became healthy:\n{self.log.read_text()[-3000:]}")
 
 
-@pytest.fixture(scope="module")
-def worker(exec_db_url: str, tmp_path_factory: pytest.TempPathFactory) -> Iterator[ResearchWorker]:
+def start_research_worker(
+    exec_db_url: str,
+    tmp_path_factory: pytest.TempPathFactory,
+    stub_timeout_s: float,
+    stub_env: dict[str, str] | None = None,
+) -> ResearchWorker:
+    """Start a worker; unless live, with stub models/router and ``stub_env`` in its env."""
     live = os.environ.get("RELAY_LIVE_RESEARCH") == "1"
     modules = "" if live else "tests.executor.research.stub_models"
-    # Stub runs finish in well under a second; a short bound lets a test hit the deadline.
-    extra = {} if live else {"RELAY_RESEARCH_TIMEOUT_S": str(STUB_TIMEOUT_S)}
+    extra = {} if live else {"RELAY_RESEARCH_TIMEOUT_S": str(stub_timeout_s), **(stub_env or {})}
     w = ResearchWorker(exec_db_url, tmp_path_factory.mktemp("research"), modules, extra)
     w.start()
+    return w
+
+
+@pytest.fixture(scope="module")
+def worker(exec_db_url: str, tmp_path_factory: pytest.TempPathFactory) -> Iterator[ResearchWorker]:
+    # Stub runs finish in well under a second; a short bound lets a test hit the deadline.
+    w = start_research_worker(exec_db_url, tmp_path_factory, STUB_TIMEOUT_S)
     try:
         yield w
     finally:

@@ -1,9 +1,16 @@
-"""The durable ``research`` runner: agent child workflow, then an idempotent render step."""
+"""The durable ``research`` runner: route step, agent child workflow, idempotent render step.
+
+Routing (TASK-46): before any research, the task is classified easy/hard ONCE by a DBOS step
+(``relay.research.route``), so a crash or replay reuses the recorded decision instead of asking
+the router again; a second step (``relay.research.record_route``) logs it to
+``router_decisions`` at most once per task. Routing only picks the model.
+"""
 
 from __future__ import annotations
 
 import os
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -11,9 +18,21 @@ from dbos import DBOS, SetWorkflowTimeout
 from dbos._error import DBOSAwaitedWorkflowCancelledError
 from pydantic_ai.messages import ModelResponse
 from pydantic_ai.usage import UsageLimits
+from sqlalchemy import select
+from sqlalchemy import text as sa_text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from relay.executor.research.agent import ResearchBrief, build_prompt, get_research_agent
+from relay.config import get_settings
+from relay.executor.research.agent import (
+    ResearchBrief,
+    build_prompt,
+    get_research_agent,
+    route_model_refs,
+)
+from relay.executor.routing import route_task
 from relay.executor.runners import ArtifactSpec, TaskContext, register_runner
+from relay.executor.workflows import db_step, engine
+from relay.store.models import RouterDecision
 
 WORKFLOW_NAME = "relay.research.run"
 REQUEST_LIMIT = 30
@@ -27,19 +46,89 @@ def research_timeout_s() -> float:
     return float(os.environ.get(TIMEOUT_ENV) or DEFAULT_TIMEOUT_S)
 
 
+@DBOS.step(name="relay.research.route")
+def route_step(goal: str, scope_excludes: str) -> dict[str, Any]:
+    """Classify the task easy/hard (never raises: any router failure is ``hard``).
+
+    Returns JSON-able data; DBOS records it, so a replay never re-classifies.
+    """
+    settings = get_settings()
+    decision = route_task(goal, scope_excludes, settings)
+    primary, fallback = route_model_refs(decision.difficulty, settings)
+    return {
+        "difficulty": decision.difficulty,
+        "valid": decision.valid,
+        "status": decision.status,
+        "latency_ms": decision.latency_ms,
+        "router_model": decision.router_model,
+        "raw": (decision.raw or "")[:500],
+        "model_chosen": primary,
+        "fallback_model": fallback,
+    }
+
+
+@db_step("relay.research.record_route")
+def record_route_step(task_id: str, route: dict[str, Any]) -> dict[str, Any]:
+    """Log the decision to ``router_decisions`` once per task; return the recorded one.
+
+    Idempotent: the partial unique index on (task_id) WHERE is_active turns a re-run into a
+    no-op, and the row already stored (not the argument) is what routes the task.
+    """
+    tid = uuid.UUID(task_id)
+    with engine().begin() as c:
+        c.execute(
+            pg_insert(RouterDecision)
+            .values(
+                task_id=tid,
+                backend="llm",
+                difficulty=route["difficulty"],
+                latency_ms=route["latency_ms"],
+                is_active=True,
+                model_chosen=route["model_chosen"],
+                router_status=route["status"],
+            )
+            .on_conflict_do_nothing(index_elements=["task_id"], index_where=sa_text("is_active"))
+        )
+        difficulty, model_chosen = c.execute(
+            select(RouterDecision.difficulty, RouterDecision.model_chosen).where(
+                RouterDecision.task_id == tid, RouterDecision.is_active
+            )
+        ).one()
+    return {**route, "difficulty": difficulty, "model_chosen": model_chosen}
+
+
+def served_model_name(message: ModelResponse) -> str:
+    """``<provider>:<model>`` as reported by the response (just the model if no provider)."""
+    return (
+        f"{message.provider_name}:{message.model_name}"
+        if message.provider_name
+        else (message.model_name or "?")
+    )
+
+
 @DBOS.workflow(name=WORKFLOW_NAME)
-def research_workflow(goal: str, scope_excludes: str) -> dict[str, Any]:
+def research_workflow(goal: str, scope_excludes: str, route: str | None = None) -> dict[str, Any]:
     """Run the research agent; each model request / tool call is a checkpointed DBOS step.
 
+    ``route`` (``easy``/``hard``) picks the model registered for it; None runs the agent's
+    default model (workflows recorded before routing existed recover that way).
     Returns the brief as JSON-able data (stable across pickling and library upgrades) plus
     ``served_by``: the concrete model that answered each request (primary or fallback).
     """
     result = get_research_agent().run_sync(
-        build_prompt(goal, scope_excludes), usage_limits=UsageLimits(request_limit=REQUEST_LIMIT)
+        build_prompt(goal, scope_excludes),
+        model=route,
+        usage_limits=UsageLimits(request_limit=REQUEST_LIMIT),
     )
-    served_by = [m.model_name for m in result.all_messages() if isinstance(m, ModelResponse)]
+    responses = [m for m in result.all_messages() if isinstance(m, ModelResponse)]
+    served_by = [m.model_name for m in responses]
     DBOS.logger.info(f"research {DBOS.workflow_id}: model requests served by {served_by}")
-    return {**result.output.model_dump(mode="json"), "served_by": served_by}
+    served_model = served_model_name(responses[-1]) if responses else None
+    return {
+        **result.output.model_dump(mode="json"),
+        "served_by": served_by,
+        "served_model": served_model,
+    }
 
 
 def render_markdown(brief: ResearchBrief) -> str:
@@ -83,15 +172,28 @@ def render_step(artifacts_dir: str, idea_id: str, task_id: str, brief: dict[str,
 
 
 def run_research(ctx: TaskContext) -> ArtifactSpec:
-    """Durable runner (called from the ``run_task`` workflow body): child workflow + step."""
+    """Durable runner (called from the ``run_task`` workflow body): steps + child workflow."""
+    route = record_route_step(str(ctx.task_id), route_step(ctx.goal, ctx.scope_excludes))
+    DBOS.logger.info(
+        f"research task {ctx.task_id}: routed {route['difficulty']} "
+        f"(router {route['status']}, {route['latency_ms']} ms) -> {route['model_chosen']}"
+        f"{' then ' + route['fallback_model'] if route['fallback_model'] else ''}"
+    )
     timeout_s = research_timeout_s()
     try:
         with SetWorkflowTimeout(timeout_s):
-            brief = research_workflow(ctx.goal, ctx.scope_excludes)
+            brief = research_workflow(ctx.goal, ctx.scope_excludes, route["difficulty"])
     except DBOSAwaitedWorkflowCancelledError as exc:
         raise TimeoutError(f"research did not finish within {timeout_s:g} s") from exc
     url = render_step(ctx.artifacts_dir, str(ctx.idea_id), str(ctx.task_id), brief)
-    return ArtifactSpec(kind="document", url=url, summary=str(brief["summary"]))
+    served_model = brief.get("served_model")
+    DBOS.logger.info(f"research task {ctx.task_id}: served by {served_model}")
+    return ArtifactSpec(
+        kind="document",
+        url=url,
+        summary=str(brief["summary"]),
+        served_model=str(served_model) if served_model else None,
+    )
 
 
 register_runner("research", run_research, durable=True)

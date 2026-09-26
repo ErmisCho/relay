@@ -63,6 +63,10 @@ _MODEL_FIELDS = (
     "summary_model",
     "research_model",
     "research_fallback_model",
+    "router_model",
+    "research_easy_model",
+    "research_hard_model",
+    "research_hard_fallback_model",
 )
 
 
@@ -92,6 +96,17 @@ class Settings(BaseSettings):
     delegator_reasoning_effort: Literal["none", "low", "medium", "high", "xhigh", "default"] = (
         "none"
     )
+
+    # --- Task-difficulty routing (decision-5: gemma4 v2 router) ----------------------------
+    # The router classifies each dispatched task easy/hard once; failure or timeout = hard.
+    # Easy tasks run on research_easy_model; hard ones on research_hard_model, falling back
+    # to research_hard_fallback_model. research_model/research_fallback_model remain the
+    # pre-routing defaults.
+    router_model: str = "ollama:gemma4:e4b"
+    router_timeout_s: float = 5.0
+    research_easy_model: str = "ollama:gemma4:e4b"
+    research_hard_model: str = "openai:gpt-6-luna"
+    research_hard_fallback_model: str = "ollama:qwen3.8:latest"
 
     # --- Delegator / voice -----------------------------------------------------------------
     delegator_shared_secret: str = "dev-secret-change-me"

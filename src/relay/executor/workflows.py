@@ -42,7 +42,7 @@ def _transient(exc: BaseException) -> bool:
     return isinstance(exc, (OperationalError, InterfaceError))
 
 
-def _db_step(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def db_step(name: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """DBOS step for DB writes: retried on transient errors, 5 attempts, 1 s doubling (~15 s)."""
     return DBOS.step(
         name=name,
@@ -59,7 +59,7 @@ def engine() -> Engine:
     return _engine if _engine is not None else configure_engine(get_settings().database_url)
 
 
-@_db_step("relay.task.start")
+@db_step("relay.task.start")
 def start_task_step(task_id: str) -> TaskContext:
     """Mark the task running (first start wins for ``started_at``) and load its context."""
     tid = uuid.UUID(task_id)
@@ -107,7 +107,7 @@ async def _await(aw: object) -> ArtifactSpec:
     return cast(ArtifactSpec, await aw)  # type: ignore[misc]
 
 
-@_db_step("relay.task.complete")
+@db_step("relay.task.complete")
 def complete_task_step(task_id: str, session_id: str | None, spec: ArtifactSpec) -> None:
     """Artifact + succeeded + idea delivered + pending report, atomically and at most once."""
     tid = uuid.UUID(task_id)
@@ -127,7 +127,12 @@ def complete_task_step(task_id: str, session_id: str | None, spec: ArtifactSpec)
         c.execute(
             update(Task)
             .where(Task.id == tid)
-            .values(status="succeeded", finished_at=func.now(), error=None)
+            .values(
+                status="succeeded",
+                finished_at=func.now(),
+                error=None,
+                served_model=spec.served_model,
+            )
         )
         # Core UPDATE bypasses the ORM onupdate, so set updated_at explicitly.
         c.execute(
@@ -143,7 +148,7 @@ def complete_task_step(task_id: str, session_id: str | None, spec: ArtifactSpec)
         )
 
 
-@_db_step("relay.task.fail")
+@db_step("relay.task.fail")
 def fail_task_step(task_id: str, error: str) -> None:
     """Record failure unless the task already reached a terminal state."""
     with engine().begin() as c:

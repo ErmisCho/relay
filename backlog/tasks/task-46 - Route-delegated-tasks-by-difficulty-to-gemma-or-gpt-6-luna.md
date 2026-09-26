@@ -1,10 +1,11 @@
 ---
 id: TASK-46
 title: Route delegated tasks by difficulty to gemma or gpt-6-luna
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-09-26 17:38'
-updated_date: '2026-09-26 17:38'
+updated_date: '2026-09-26 18:03'
 labels:
   - phase-1
   - router
@@ -32,3 +33,9 @@ Owner decision (2026-09-26): when a commitment is dispatched, the chosen router 
 - [ ] #4 The served model per task is recorded (log and task/artifact metadata) so a finished task shows which model actually produced it
 - [ ] #5 Model choices are configurable via .env without code changes
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+executor/routing.py: gemma4 v2 easy/hard router (prompt from benchmarks/router/common.py v2), 5 s timeout, failure→hard; research runner picks model per decision (easy: gemma4; hard: gpt-6-luna → qwen3.8 fallback), configurable via .env; migration 0002 lets router_decisions reference the task (task_id, turn_id nullable) and records chosen/served model; served model on artifact/task; tests with stub models + router.
+<!-- SECTION:PLAN:END -->

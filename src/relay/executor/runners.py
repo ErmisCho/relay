@@ -54,6 +54,8 @@ class ArtifactSpec:
     kind: str  # "document" | "pull_request"
     url: str
     summary: str | None = None
+    # `<provider>:<model>` that produced the result; stored as tasks.served_model.
+    served_model: str | None = None
 
 
 Runner = Callable[[TaskContext], "ArtifactSpec | Awaitable[ArtifactSpec]"]

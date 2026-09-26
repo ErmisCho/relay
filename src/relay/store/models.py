@@ -1,9 +1,10 @@
 """SQLAlchemy 2.x declarative models for the idea graph (SPEC section 7).
 
 Deviation from SPEC section 7: routing/gate decisions live in `router_decisions` (one row per
-backend per turn) instead of `turns.laya_intent/laya_ready/laya_confidence`.
-The migration in `migrations/versions/0001_initial.py` is the schema of record; these models
-mirror it for ORM use and Alembic autogenerate diffs.
+backend per turn, or per task for the task-difficulty router) instead of
+`turns.laya_intent/laya_ready/laya_confidence`.
+The migrations in `migrations/versions/` are the schema of record; these models mirror them
+for ORM use and Alembic autogenerate diffs.
 """
 
 from __future__ import annotations
@@ -39,6 +40,8 @@ EDGE_RELATIONS = ("refines", "supersedes", "blocks", "spun_off_from")
 TURN_ROUTES = ("small_local", "frontier")
 TURN_ROLES = ("user", "assistant", "system", "tool")
 ROUTER_BACKENDS = ("frontier", "laya", "llm")
+# Outcome of a task-difficulty router call (TASK-46); anything but "ok" routed the task as hard.
+ROUTER_STATUSES = ("ok", "invalid", "timeout", "error")
 
 NAMING_CONVENTION = {
     "ix": "ix_%(table_name)s_%(column_0_N_name)s",
@@ -164,6 +167,8 @@ class Task(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _created_at()
+    # `<provider>:<model>` that produced the final answer (a fallback, if the primary failed).
+    served_model: Mapped[str | None] = mapped_column(Text)
 
 
 class Artifact(Base):
@@ -201,7 +206,14 @@ class RouterDecision(Base):
     __tablename__ = "router_decisions"
     __table_args__ = (
         CheckConstraint(in_list("backend", ROUTER_BACKENDS), name="backend"),
+        # A decision is about a user turn (voice routing) or a dispatched task (difficulty).
+        CheckConstraint("turn_id IS NOT NULL OR task_id IS NOT NULL", name="turn_or_task"),
+        CheckConstraint(
+            f"router_status IS NULL OR {in_list('router_status', ROUTER_STATUSES)}",
+            name="router_status",
+        ),
         Index("ix_router_decisions_turn_id", "turn_id"),
+        Index("ix_router_decisions_task_id", "task_id"),
         # At most one decision per turn may be the one that actually drove routing.
         Index(
             "uq_router_decisions_active",
@@ -209,18 +221,30 @@ class RouterDecision(Base):
             unique=True,
             postgresql_where=sa_text("is_active"),
         ),
+        # A task is routed once: at most one active decision per task.
+        Index(
+            "uq_router_decisions_task_active",
+            "task_id",
+            unique=True,
+            postgresql_where=sa_text("is_active"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
-    turn_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("turns.id"), nullable=False)
+    turn_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("turns.id"))
+    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
     backend: Mapped[str] = mapped_column(Text, nullable=False)
     difficulty: Mapped[str | None] = mapped_column(Text)
     ready: Mapped[str | None] = mapped_column(Text)
     intent: Mapped[str | None] = mapped_column(Text)
     confidence: Mapped[float | None] = mapped_column(Float)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
-    # True for the backend whose decision actually drove routing on this turn.
+    # True for the backend whose decision actually drove routing on this turn / task.
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # Task-difficulty router: the `<provider>:<model>` picked as primary for the task, and
+    # whether the router answered ("ok") or the fail-safe applied (invalid/timeout/error).
+    model_chosen: Mapped[str | None] = mapped_column(Text)
+    router_status: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _created_at()
 
 

@@ -25,11 +25,16 @@ async def test_orm_round_trip(migrated_db_url: str) -> None:
             await db.flush()
             task = Task(commitment_id=commitment.id, kind="research")
             db.add_all([task, RouterDecision(turn_id=turn.id, backend="frontier")])
+            await db.flush()
+            db.add(RouterDecision(task_id=task.id, backend="llm", difficulty="hard",
+                                  is_active=True, model_chosen="openai:gpt-6-luna",
+                                  router_status="timeout"))
             await db.commit()
 
             for obj in (idea, turn, task):
                 await db.refresh(obj)
             assert turn.meta == {"refused": True}
             assert (idea.status, task.status) == ("exploring", "queued")
+            assert task.served_model is None
     finally:
         await engine.dispose()

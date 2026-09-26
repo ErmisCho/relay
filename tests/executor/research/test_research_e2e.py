@@ -82,7 +82,9 @@ async def test_research_commitment_writes_markdown_document(
     calls = _calls(worker, "e2e-doc")
     assert calls and all(goal in c["prompt"] and excludes in c["prompt"] for c in calls)
     assert "Out of scope" in calls[0]["prompt"] and "never send" in calls[0]["instructions"]
-    assert len(calls) == 2 and {c["model"] for c in calls} == {"primary"}
+    # No routing marker: the stub router says hard, so the hard primary served everything.
+    assert len(calls) == 2 and {c["model"] for c in calls} == {"stub-hard"}
+    assert task_row(sync_engine, task_id)["served_model"] == "stub-hard"
 
     # Durability: model requests and the tool call are checkpointed steps of the agent's
     # child workflow, so a crash mid-research resumes instead of re-asking the model.
@@ -102,6 +104,24 @@ async def test_research_commitment_writes_markdown_document(
         )
     assert steps.count("relay_research__model.request") == 2, steps
     assert "relay.research.fetch_url" in steps, steps
+    # The routing decision is a step of the task workflow itself, recorded before research.
+    with sync_engine.connect() as c:
+        task_steps: list[str] = list(
+            c.execute(
+                text(
+                    "SELECT function_name FROM dbos.operation_outputs WHERE workflow_uuid = :wf "
+                    "ORDER BY function_id"
+                ),
+                {"wf": f"task-{task_id}"},
+            )
+            .scalars()
+            .all()
+        )
+    assert task_steps[:3] == [
+        "relay.task.start",
+        "relay.research.route",
+        "relay.research.record_route",
+    ], task_steps
 
 
 async def test_primary_model_failure_falls_back_without_failing_task(
@@ -117,10 +137,12 @@ async def test_primary_model_failure_falls_back_without_failing_task(
     kind, url, _ = _artifact(sync_engine, task_id)
     assert kind == "document" and Path(unquote(urlsplit(url).path)).is_file()
     models = [c["model"] for c in _calls(worker, "e2e-fallback")]
-    assert models == ["primary", "fallback", "primary", "fallback"]
+    assert models == ["stub-hard", "stub-hard-fallback", "stub-hard", "stub-hard-fallback"]
     # The worker log names the model that actually served each request.
     served = [ln for ln in worker.log.read_text().splitlines() if "served by" in ln]
-    assert any("['stub-fallback', 'stub-fallback']" in ln for ln in served), served
+    assert any("['stub-hard-fallback', 'stub-hard-fallback']" in ln for ln in served), served
+    # ...and the task records the fallback as the served model.
+    assert task_row(sync_engine, task_id)["served_model"] == "stub-hard-fallback"
 
 
 async def test_research_run_is_bounded_by_workflow_timeout(

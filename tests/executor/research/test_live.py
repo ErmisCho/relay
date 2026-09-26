@@ -71,3 +71,49 @@ async def test_live_research_brief_respects_exclusion(
     assert sources
     assert served, "worker did not log which model served the requests"
     assert not hits, f"excluded topic (recipes/baking instructions) in body: {hits}"
+
+
+async def test_live_hard_research_is_routed_to_the_hard_model(
+    db: async_sessionmaker[AsyncSession],
+    seed_research: Callable[[str, str], Seed],
+    dbos_client: DBOSClient,
+    sync_engine: Engine,
+    worker: ResearchWorker,
+) -> None:
+    """One small hard task: the real router says hard, the hard model (gpt-6-luna) serves."""
+    goal = (
+        "Compare the licences of three open-source vector databases (Qdrant, Milvus, "
+        "Weaviate) in a short brief: licence name and what it allows commercially."
+    )
+    s = seed_research(goal, "Pricing of hosted/cloud offerings.")
+    t0 = time.monotonic()
+    started = await start_task(
+        db, commitment_id=s.commitment_id, kind="research", client=dbos_client
+    )
+    wait_for(
+        lambda: task_row(sync_engine, started.task_id)["status"] in ("succeeded", "failed"),
+        timeout=1500,
+    )
+    row = task_row(sync_engine, started.task_id)
+    assert row["status"] == "succeeded", row["error"]
+    with sync_engine.connect() as c:
+        difficulty, chosen, status, latency = c.execute(
+            text(
+                "SELECT difficulty, model_chosen, router_status, latency_ms "
+                "FROM router_decisions WHERE task_id = :t"
+            ),
+            {"t": started.task_id},
+        ).one()
+        url: str = c.execute(
+            text("SELECT url FROM artifacts WHERE task_id = :t"), {"t": started.task_id}
+        ).scalar_one()
+    doc = Path(unquote(urlsplit(url).path)).read_text()
+    sources = [ln for ln in doc.partition("## Sources")[2].splitlines() if ln.startswith("- <http")]
+    print(
+        f"\nLIVE hard duration={time.monotonic() - t0:.0f}s route={difficulty}/{status} "
+        f"({latency} ms) chosen={chosen} served={row['served_model']} sources={len(sources)}\n"
+        + "\n".join(sources)
+    )
+    assert (difficulty, status) == ("hard", "ok")
+    assert row["served_model"] == chosen  # the hard primary served, not its fallback
+    assert sources
