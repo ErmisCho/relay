@@ -1,0 +1,436 @@
+<title>Ideation Agent Backlog</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper:    #EEF1F2;
+    --surface:  #FFFFFF;
+    --ink:      #16202A;
+    --muted:    #5B6B76;
+    --hair:     #D3DADF;
+    --accent:   #1E7F82;
+    --accent-ink: #0E4C4E;
+    --wave:     #B9C3C7;
+    --done:     #3F8A5B;
+    --done-ink: #1F5C36;
+    --wait:     #C97A2E;
+    --wait-ink: #8A4E15;
+
+    --serif: "Source Serif 4", Georgia, "Iowan Old Style", serif;
+    --sans:  "IBM Plex Sans", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+    --mono:  "IBM Plex Mono", ui-monospace, "Cascadia Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #10161A;
+      --surface:    #171E23;
+      --ink:        #E4ECEE;
+      --muted:      #8CA0A6;
+      --hair:       #2A3439;
+      --accent:     #57C7C4;
+      --accent-ink: #BEF2EF;
+      --wave:       #33413F;
+      --done:       #5FB981;
+      --done-ink:   #B7E7C7;
+      --wait:       #E4A05C;
+      --wait-ink:   #F5D5AC;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #10161A;
+    --surface:    #171E23;
+    --ink:        #E4ECEE;
+    --muted:      #8CA0A6;
+    --hair:       #2A3439;
+    --accent:     #57C7C4;
+    --accent-ink: #BEF2EF;
+    --wave:       #33413F;
+    --done:       #5FB981;
+    --done-ink:   #B7E7C7;
+    --wait:       #E4A05C;
+    --wait-ink:   #F5D5AC;
+  }
+
+  :root[data-theme="light"] {
+    --paper:      #EEF1F2;
+    --surface:    #FFFFFF;
+    --ink:        #16202A;
+    --muted:      #5B6B76;
+    --hair:       #D3DADF;
+    --accent:     #1E7F82;
+    --accent-ink: #0E4C4E;
+    --wave:       #B9C3C7;
+    --done:       #3F8A5B;
+    --done-ink:   #1F5C36;
+    --wait:       #C97A2E;
+    --wait-ink:   #8A4E15;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 38px;
+  }
+
+  /* ---- masthead ---- */
+  .masthead { display: flex; flex-direction: column; gap: 12px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .eyebrow svg { width: 14px; height: 14px; flex: none; }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(28px, 4.4vw, 40px);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.12;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .dek {
+    font-size: 15px;
+    color: var(--muted);
+    max-width: 62ch;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 18px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hair);
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pair {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 9px;
+    border: 1px solid var(--hair);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--ink);
+    letter-spacing: 0.03em;
+  }
+  .pair strong { color: var(--accent); font-weight: 500; }
+
+  /* ---- board ---- */
+  .board {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    align-items: start;
+  }
+
+  .decision {
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-top: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 20px 22px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .decision-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .decision-id {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .status {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    padding: 3px 8px;
+    border-radius: 3px;
+  }
+
+  .status.done {
+    color: var(--done-ink);
+    background: color-mix(in srgb, var(--done) 18%, transparent);
+  }
+
+  .status.blocked {
+    color: var(--wait-ink);
+    background: color-mix(in srgb, var(--wait) 20%, transparent);
+  }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 4px;
+  }
+
+  .section-head h2 {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .tooling {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    margin-top: 14px;
+  }
+
+  .decision .step {
+    font-size: 13.5px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .decision .step code { white-space: normal; }
+
+  .decision h2 {
+    font-family: var(--serif);
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.28;
+    letter-spacing: -0.005em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  .decision .why {
+    font-size: 13.5px;
+    color: var(--muted);
+    border-left: 2px solid var(--hair);
+    padding-left: 10px;
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .option {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 13.5px;
+    padding: 9px 11px;
+    border: 1px solid var(--hair);
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--surface) 60%, var(--paper) 40%);
+  }
+
+  .option .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    flex: none;
+    padding-top: 1px;
+    min-width: 3.4em;
+  }
+
+  .decision footer {
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px solid var(--hair);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: color-mix(in srgb, var(--accent) 10%, var(--surface) 90%);
+    padding: 1px 4px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+  }
+  .divider span {
+    width: 3px;
+    background: var(--wave);
+    border-radius: 1px;
+  }
+
+  footer.page {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    padding-top: 16px;
+    border-top: 1px solid var(--hair);
+  }
+
+  @media (max-width: 720px) {
+    .board, .tooling { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="eyebrow">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 18v3"/></svg>
+      Voice-first ideation agent · spec v1 draft
+    </div>
+    <h1>Ideation Agent Backlog</h1>
+    <p class="dek">Four decisions the spec leaves open before Phase 1 can start — each one changes an architectural commitment downstream, so they're tracked here rather than buried in a numbered list.</p>
+    <div class="meta">
+      <span class="pair">4 open <strong>·</strong> 0 answered</span>
+      <span class="pair">source <strong>§11</strong></span>
+      <span class="pair">blocks <strong>Phase 1–2</strong></span>
+      <span class="pair">tooling <strong>1</strong>/2 installed</span>
+    </div>
+  </header>
+
+  <div class="board">
+
+    <article class="decision">
+      <div class="decision-head">
+        <span class="decision-id">Q1 · executor</span>
+        <span class="status">Open</span>
+      </div>
+      <h2>Where does the code executor check out the repo?</h2>
+      <p class="why">Determines how secrets are handled and whether a dispatched task survives a closed laptop.</p>
+      <div class="options">
+        <div class="option"><span class="tag">Cloud</span>A sandbox clones from the git host directly — tasks are durable and outlive the client, but the sandbox needs its own credentials.</div>
+        <div class="option"><span class="tag">Local</span>An agent runs on a machine that already has the checkout — no extra secrets to provision, but the task dies if that machine sleeps or closes.</div>
+      </div>
+      <footer>affects → Pydantic AI executor, DBOS workflow durability</footer>
+    </article>
+
+    <article class="decision">
+      <div class="decision-head">
+        <span class="decision-id">Q2 · wake word</span>
+        <span class="status">Open</span>
+      </div>
+      <h2>Pretrained wake phrase, or a custom-trained one?</h2>
+      <p class="why">Trades zero setup cost against an on-brand phrase — and the two require different tooling.</p>
+      <div class="options">
+        <div class="option"><span class="tag">Stock</span>An openWakeWord pretrained model — free, works today, no training pipeline.</div>
+        <div class="option"><span class="tag">Custom</span>A trained phrase via Porcupine — on-brand wake word, but adds an account, a training step, and a second engine to keep on the client.</div>
+      </div>
+      <footer>affects → §5 wake word component, first-run setup</footer>
+    </article>
+
+    <article class="decision">
+      <div class="decision-head">
+        <span class="decision-id">Q3 · sessions</span>
+        <span class="status">Open</span>
+      </div>
+      <h2>Do ideas resume across devices, or only on request?</h2>
+      <p class="why">Changes what the idea graph has to reconcile, and whether a session can silently pick up state the user forgot about.</p>
+      <div class="options">
+        <div class="option"><span class="tag">Auto</span>An idea started on the desktop resumes on the laptop mid-thought — seamless, but the agent must merge context the user never re-stated.</div>
+        <div class="option"><span class="tag">Explicit</span>Resumption is always a deliberate act — simpler state, but the user has to ask for continuity instead of getting it for free.</div>
+      </div>
+      <footer>affects → §7 idea graph, <code>sessions</code> table</footer>
+    </article>
+
+    <article class="decision">
+      <div class="decision-head">
+        <span class="decision-id">Q4 · barge-in</span>
+        <span class="status">Open</span>
+      </div>
+      <h2>What happens when a completion report gets interrupted?</h2>
+      <p class="why">The agent announces a finished task at the next turn boundary — but the user may start talking before it's done. §6 doesn't say what the agent does with the rest of the report.</p>
+      <div class="options">
+        <div class="option"><span class="tag">Drop</span>Abandon the announcement — the user's turn wins outright, the artifact link is still in the idea graph either way.</div>
+        <div class="option"><span class="tag">Queue</span>Hold the rest of the report and resume it at the next natural pause — nothing said gets lost, but it can feel like the agent is talking over the user's next thought.</div>
+      </div>
+      <footer>affects → §6 commitment protocol, step 5 (Report)</footer>
+    </article>
+
+  </div>
+
+  <section>
+    <div class="section-head"><h2>Agent tooling</h2></div>
+    <div class="tooling">
+
+      <article class="decision">
+        <div class="decision-head">
+          <span class="decision-id">T1 · eval</span>
+          <span class="status done">Installed</span>
+        </div>
+        <h2>asian-dad-eval skill</h2>
+        <p class="why">Strict binary PASS/FAIL/SPEC-GAP grader for the executor's logical output — code, PR diffs, config — gated off creative work entirely.</p>
+        <div class="step"><code>~/.claude/skills/asian-dad-eval/SKILL.md</code></div>
+        <footer>source → github.com/yiyubruceliu/AsianDadSkill</footer>
+      </article>
+
+      <article class="decision">
+        <div class="decision-head">
+          <span class="decision-id">T2 · orchestration</span>
+          <span class="status blocked">Needs manual step</span>
+        </div>
+        <h2>session-orchestrator plugin</h2>
+        <p class="why">Plan → Execute → Verify wave runner for the Phase 2 code executor's background agents. Ships 50+ skills, hooks and commands — a marketplace plugin, not a skill file, so it can't be dropped in silently.</p>
+        <div class="step">Run in a git repo, Node 24+: <code>/plugin marketplace add Kanevry/session-orchestrator</code>, then <code>/bootstrap</code></div>
+        <footer>source → github.com/Kanevry/session-orchestrator</footer>
+      </article>
+
+    </div>
+  </section>
+
+  <footer class="page">Voice-First Ideation Agent · Technical Specification draft v1 · 2026-09-26</footer>
+
+</div>
