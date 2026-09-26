@@ -4,12 +4,12 @@ title: Build client capability detection and local routing fallback
 status: To Do
 assignee: []
 created_date: '2026-09-26 12:48'
+updated_date: '2026-09-26 13:07'
 labels:
   - phase-3
   - routing
 milestone: m-2
-dependencies:
-  - TASK-15
+dependencies: []
 references:
   - spec-v1-draft.md#5-components
 priority: low

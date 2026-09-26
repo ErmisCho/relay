@@ -4,13 +4,13 @@ title: Build the code executor under DBOS
 status: To Do
 assignee: []
 created_date: '2026-09-26 12:48'
+updated_date: '2026-09-26 13:07'
 labels:
   - phase-2
   - executor
 milestone: m-1
 dependencies:
   - TASK-1
-  - TASK-13
 references:
   - spec-v1-draft.md#8-phasing
 priority: medium

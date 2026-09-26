@@ -4,18 +4,12 @@ title: Validate Phase 1 exit criterion
 status: To Do
 assignee: []
 created_date: '2026-09-26 12:47'
-updated_date: '2026-09-26 12:48'
+updated_date: '2026-09-26 13:07'
 labels:
   - phase-1
   - validation
 milestone: m-0
-dependencies:
-  - TASK-7
-  - TASK-8
-  - TASK-9
-  - TASK-10
-  - TASK-11
-  - TASK-12
+dependencies: []
 references:
   - spec-v1-draft.md#8-phasing
 priority: high
