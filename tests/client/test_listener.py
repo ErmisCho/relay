@@ -89,6 +89,9 @@ class FakeVoice:
         self.start_mic_was_open: list[bool] = []
         self.stops = 0
 
+    def prepare(self) -> None:
+        pass
+
     def start(self, session_id: str) -> None:
         self.log.append("start")
         self.start_mic_was_open.append(self.audio.is_open)

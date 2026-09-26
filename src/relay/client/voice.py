@@ -59,6 +59,13 @@ class VoiceSession(Protocol):
         """True between a successful `start` and the end of the session."""
         ...
 
+    def prepare(self) -> None:
+        """Warm up for the next `start()` while the wake listener idles.
+
+        Must not block and must not raise; a failed warm-up only makes `start()` slower.
+        """
+        ...
+
     def start(self, session_id: str) -> None:
         """Open the microphone and connect; `session_id` must reach the Delegator."""
         ...

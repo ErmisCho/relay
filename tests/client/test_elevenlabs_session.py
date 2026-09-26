@@ -13,7 +13,11 @@ import pytest
 from elevenlabs.client import ElevenLabs
 from elevenlabs.conversational_ai.conversation import Conversation
 
-from relay.client.elevenlabs_session import ElevenLabsVoiceSession, SounddeviceAudioInterface
+from relay.client.elevenlabs_session import (
+    ElevenLabsVoiceSession,
+    SignedUrlCache,
+    SounddeviceAudioInterface,
+)
 from relay.client.voice import VoiceSession
 from relay.config import Settings
 from tests.client.fakes import ConversationRecorder, StreamRecorder
@@ -31,6 +35,7 @@ class Harness:
         *,
         conversation_factory: Any = None,
         inputs: StreamRecorder | None = None,
+        signed_url_cache: SignedUrlCache | None = None,
     ) -> None:
         self.conversations = ConversationRecorder()
         self.inputs = inputs or StreamRecorder()
@@ -43,6 +48,7 @@ class Harness:
             audio_interface_factory=lambda: SounddeviceAudioInterface(
                 input_stream_factory=self.inputs, output_stream_factory=self.outputs
             ),
+            signed_url_cache=signed_url_cache,
         )
         self.session.on_end = self._on_end
 
@@ -476,3 +482,65 @@ def test_relay_voice_gate_off_streams_unchanged(monkeypatch: pytest.MonkeyPatch)
         time.sleep(0.005)
     audio.stop()
     assert sent == [distant]
+
+
+class UrlFetcher:
+    """Fake `get_signed_url`: counts calls, hands out distinct URLs, or raises `fail`."""
+
+    def __init__(self, fail: Exception | None = None) -> None:
+        self.calls = 0
+        self.fail = fail
+
+    def __call__(self) -> str:
+        self.calls += 1
+        if self.fail is not None:
+            raise self.fail
+        return f"wss://signed/{self.calls}"
+
+
+def _run_session(harness: Harness, session_id: str) -> dict[str, Any]:
+    harness.session.start(session_id)
+    kwargs = harness.conversations.conversations[-1].kwargs
+    harness.session.stop()
+    harness.wait_for_end()
+    return kwargs
+
+
+def test_fresh_prefetched_url_is_used_once_without_a_fetch_at_trigger(settings: Settings) -> None:
+    # TASK-24 AC1: the wake path must not wait on get_signed_url when a fresh URL is ready,
+    # and a signed URL is single-use, so the next session must not get it again.
+    fetch = UrlFetcher()
+    cache = SignedUrlCache(fetch, clock=FakeClock())
+    cache.refresh()
+    harness = Harness(settings, signed_url_cache=cache)
+
+    first = _run_session(harness, "s1")
+    second = _run_session(harness, "s2")
+
+    assert first["signed_url"] == "wss://signed/1"
+    assert fetch.calls == 1
+    assert "signed_url" not in second  # used URL not reused -> SDK fetches on demand
+
+
+def test_expired_prefetched_url_is_not_used(settings: Settings) -> None:
+    clock = FakeClock()
+    cache = SignedUrlCache(UrlFetcher(), max_age_s=300.0, clock=clock)
+    cache.refresh()
+    clock.now += 300.0
+    harness = Harness(settings, signed_url_cache=cache)
+
+    assert "signed_url" not in _run_session(harness, "s1")
+
+
+def test_prefetch_failure_falls_back_to_on_demand_and_logs_once(
+    settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    fetch = UrlFetcher(fail=ConnectionError("offline"))
+    cache = SignedUrlCache(fetch, clock=FakeClock())
+    cache.refresh()  # must not raise into the listener
+    cache.refresh()
+    harness = Harness(settings, signed_url_cache=cache)
+
+    assert "signed_url" not in _run_session(harness, "s1")
+    assert fetch.calls == 2
+    assert len([r for r in caplog.records if "prefetch failed" in r.getMessage()]) == 1

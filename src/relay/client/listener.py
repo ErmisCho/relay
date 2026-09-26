@@ -256,6 +256,10 @@ class WakeListener:
     async def _listen_until_trigger(self) -> None:
         await self._audio.open()
         self._set_state(State.LISTENING)
+        try:
+            self._voice.prepare()  # e.g. prefetch the signed URL; never worth losing the loop
+        except Exception:
+            log.exception("voice prepare failed; the next session connects without it")
         while True:
             frame = await self._audio.read()
             if self._detector.process(frame):

@@ -22,6 +22,7 @@ import math
 import queue
 import threading
 import time
+import urllib.parse
 from collections import deque
 from collections.abc import Callable
 from typing import Any, Literal, Protocol
@@ -33,6 +34,7 @@ from elevenlabs.conversational_ai.conversation import (
     Conversation,
     ConversationInitiationData,
 )
+from elevenlabs.version import __version__ as sdk_version
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from relay.client.voice import EndCallback, TranscriptCallback
@@ -565,14 +567,151 @@ ConversationFactory = Callable[..., ConversationLike]
 """Called with the SDK `Conversation` keyword arguments minus `client`/`requires_auth`."""
 
 
+# The signed-URL TTL is not stated anywhere in this repo or in the SDK source, so these ages are
+# deliberately conservative. A URL older than MAX_AGE is never handed to a session, and a
+# URL is refreshed in the background once it is REFRESH_AFTER old. Revisit both if
+# ElevenLabs documents a shorter TTL, or make them settings (config.py is owned elsewhere).
+SIGNED_URL_MAX_AGE_S = 300.0
+SIGNED_URL_REFRESH_AFTER_S = 240.0
+
+
+def _with_sdk_params(signed_url: str) -> str:
+    """Append the query parameters the SDK's `Conversation._get_signed_url` adds.
+
+    This mirrors conversation.py:517-527 in `elevenlabs` 2.69.0.
+    """
+    parsed = urllib.parse.urlparse(signed_url)
+    params = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+    params.extend([("source", "python_sdk"), ("version", sdk_version)])
+    query = urllib.parse.urlencode(params, quote_via=urllib.parse.quote)
+    return urllib.parse.urlunparse(parsed._replace(query=query))
+
+
+def sdk_signed_url_fetcher(settings: Settings) -> Callable[[], str]:
+    """Real fetcher: one `get_signed_url` API call per call, returning a ready-to-dial URL."""
+    agent_id = settings.elevenlabs_agent_id
+    if not settings.elevenlabs_api_key:
+        raise RuntimeError("ELEVENLABS_API_KEY is not set")
+    if not agent_id:
+        raise RuntimeError("ELEVENLABS_AGENT_ID is not set; run scripts/apply_agent_config.py")
+    client = ElevenLabs(api_key=settings.elevenlabs_api_key)
+
+    def fetch() -> str:
+        response = client.conversational_ai.conversations.get_signed_url(agent_id=agent_id)
+        return _with_sdk_params(response.signed_url)
+
+    return fetch
+
+
+class SignedUrlCache:
+    """Keeps a fresh signed conversation URL ready while the wake listener idles (TASK-24 AC1).
+
+    Without it, the `get_signed_url` API call ran only after the wake word, which put about
+    half a second on trigger -> connected. `prefetch()` never blocks and never raises: a failed
+    fetch logs once and leaves the cache empty, so `start()` falls back to the on-demand fetch.
+    `take()` hands a URL out at most once (signed URLs are single-use).
+    """
+
+    def __init__(
+        self,
+        fetch: Callable[[], str],
+        *,
+        max_age_s: float = SIGNED_URL_MAX_AGE_S,
+        refresh_after_s: float = SIGNED_URL_REFRESH_AFTER_S,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._fetch = fetch
+        self._max_age_s = max_age_s
+        self._refresh_after_s = refresh_after_s
+        self._clock = clock
+        self._lock = threading.Lock()
+        self._url: str | None = None
+        self._fetched_at = 0.0
+        self._in_flight = False
+        self._timer: threading.Timer | None = None
+        self._failure_logged = False
+
+    def prefetch(self) -> None:
+        """Start a background fetch unless one is running or the cached URL is still young."""
+        with self._lock:
+            young = (
+                self._url is not None
+                and self._clock() - self._fetched_at < self._refresh_after_s
+            )
+            if self._in_flight or young:
+                return
+            self._in_flight = True
+        threading.Thread(target=self._refresh, name="relay-signed-url", daemon=True).start()
+
+    def refresh(self) -> None:
+        """Fetch a URL now (blocking) and schedule the next refresh. Never raises."""
+        with self._lock:
+            self._in_flight = True
+        self._refresh()
+
+    def _refresh(self) -> None:
+        try:
+            url = self._fetch()
+        except Exception as exc:
+            with self._lock:
+                self._in_flight = False
+                first = not self._failure_logged
+                self._failure_logged = True
+            if first:
+                logger.warning(
+                    "signed URL prefetch failed (%s); the next session fetches it on demand", exc
+                )
+            return
+        timer = threading.Timer(self._refresh_after_s, self.prefetch)
+        timer.daemon = True
+        with self._lock:
+            self._url = url
+            self._fetched_at = self._clock()
+            self._in_flight = False
+            self._failure_logged = False
+            if self._timer is not None:
+                self._timer.cancel()
+            self._timer = timer
+        timer.start()
+
+    def take(self) -> str | None:
+        """The cached URL if it is still within `max_age_s`, else None. Empties the cache."""
+        with self._lock:
+            url, self._url = self._url, None
+            if self._timer is not None:
+                self._timer.cancel()
+                self._timer = None
+            if url is not None and self._clock() - self._fetched_at < self._max_age_s:
+                return url
+        return None
+
+
+class _PrefetchedUrlConversation(Conversation):
+    """SDK `Conversation` that dials a prefetched signed URL instead of fetching one."""
+
+    def __init__(self, *args: Any, signed_url: str | None = None, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._prefetched_url = signed_url
+
+    def _get_signed_url(self) -> str:
+        url, self._prefetched_url = self._prefetched_url, None
+        if url is None:
+            # The SDK method carries no annotations (conversation.py:517).
+            return str(super()._get_signed_url())  # type: ignore[no-untyped-call]
+        return url
+
+
 def sdk_conversation_factory(settings: Settings) -> ConversationFactory:
-    """Real SDK factory: a signed-URL (authenticated) websocket `Conversation`."""
+    """Real SDK factory: a signed-URL (authenticated) websocket `Conversation`.
+
+    Takes an optional `signed_url` keyword; without it the SDK fetches one in `start_session()`.
+    """
     if not settings.elevenlabs_api_key:
         raise RuntimeError("ELEVENLABS_API_KEY is not set")
     client = ElevenLabs(api_key=settings.elevenlabs_api_key)
 
     def factory(**kwargs: Any) -> ConversationLike:
-        return Conversation(client, requires_auth=True, **kwargs)
+        return _PrefetchedUrlConversation(client, requires_auth=True, **kwargs)
 
     return factory
 
@@ -592,10 +731,15 @@ class ElevenLabsVoiceSession:
         audio_interface_factory: Callable[[], SounddeviceAudioInterface] = (
             SounddeviceAudioInterface
         ),
+        signed_url_cache: SignedUrlCache | None = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._conversation_factory = conversation_factory
         self._audio_interface_factory = audio_interface_factory
+        if signed_url_cache is None and conversation_factory is None:
+            signed_url_cache = SignedUrlCache(self._fetch_signed_url)
+        self._url_cache = signed_url_cache
+        self._url_fetcher: Callable[[], str] | None = None
         self.on_user_transcript: TranscriptCallback | None = None
         self.on_agent_response: TranscriptCallback | None = None
         self.on_end: EndCallback | None = None
@@ -623,6 +767,16 @@ class ElevenLabsVoiceSession:
     def session_id(self) -> str | None:
         return self._session_id
 
+    def _fetch_signed_url(self) -> str:
+        if self._url_fetcher is None:
+            self._url_fetcher = sdk_signed_url_fetcher(self._settings)
+        return self._url_fetcher()
+
+    def prepare(self) -> None:
+        """Prefetch the signed URL in the background so the next `start()` skips that call."""
+        if self._url_cache is not None:
+            self._url_cache.prefetch()
+
     def start(self, session_id: str) -> None:
         if not session_id:
             raise ValueError("session_id must not be empty")
@@ -641,7 +795,15 @@ class ElevenLabsVoiceSession:
                 extra_body={"session_id": session_id},
                 dynamic_variables={"session_id": session_id},
             )
+            signed_url = self._url_cache.take() if self._url_cache is not None else None
+            url_kwargs = {} if signed_url is None else {"signed_url": signed_url}
+            logger.info(
+                "session %s: signed URL %s",
+                session_id,
+                "prefetched" if signed_url is not None else "fetched on demand",
+            )
             conversation = factory(
+                **url_kwargs,
                 agent_id=agent_id,
                 audio_interface=audio,
                 config=config,
