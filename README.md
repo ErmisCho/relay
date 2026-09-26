@@ -8,6 +8,32 @@ Voice-first ideation agent: wake word, ElevenLabs voice loop, Delegator, durable
 uv sync --extra dev
 ```
 
+## Local setup
+
+Requires [uv](https://docs.astral.sh/uv/) and Docker.
+
+```bash
+uv sync --extra dev               # install runtime + dev dependencies
+cp .env.example .env              # settings (local Ollama models by default)
+docker compose up -d postgres     # Postgres 16 on localhost:55432 (user/pass/db: relay)
+uv run alembic upgrade head       # create the idea-graph schema
+uv run pytest                     # tests create and drop their own throwaway database
+```
+
+Settings live in `src/relay/config.py` and are read from the environment and `.env`.
+Database tests are skipped (not failed) when Postgres is unreachable; point them at another
+server with `TEST_DATABASE_URL`. `uv run alembic downgrade base` removes the schema.
+
+## Layout
+
+| Path | Contents |
+|------|----------|
+| `src/relay/config.py` | `Settings` / `get_settings()` |
+| `src/relay/store/` | SQLAlchemy models, async engine, Alembic migrations |
+| `src/relay/delegator/` | Custom-LLM endpoint for ElevenLabs |
+| `src/relay/executor/` | Durable task executors |
+| `src/relay/client/` | Wake word + voice session client |
+
 ## Development
 
 | Command | Description |

@@ -1,10 +1,11 @@
 ---
 id: TASK-21
 title: Scaffold the relay service and Postgres idea-graph schema
-status: To Do
-assignee: []
+status: Done
+assignee:
+  - '@claude'
 created_date: '2026-09-26 13:09'
-updated_date: '2026-09-26 13:14'
+updated_date: '2026-09-26 14:10'
 labels:
   - phase-1
   - data
@@ -37,15 +38,37 @@ Every other component (Delegator, executor, DBOS, commitment audit trail) reads 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `docker compose up` plus `alembic upgrade head` produces the SPEC §7 tables (with the `router_decisions` deviation) and all listed columns
-- [ ] #2 Inserting a commitment with NULL `assent_utterance` or a task without a `commitment_id` fails at the database level
-- [ ] #3 Invalid enum values for ideas.status, tasks.kind, artifacts.kind, idea_edges.relation and router_decisions.backend are rejected by CHECK constraints
-- [ ] #4 Multiple `router_decisions` rows from different backends can reference the same turn
-- [ ] #5 `alembic downgrade base` cleanly removes the schema
+- [x] #1 `docker compose up` plus `alembic upgrade head` produces the SPEC §7 tables (with the `router_decisions` deviation) and all listed columns
+- [x] #2 Inserting a commitment with NULL `assent_utterance` or a task without a `commitment_id` fails at the database level
+- [x] #3 Invalid enum values for ideas.status, tasks.kind, artifacts.kind, idea_edges.relation and router_decisions.backend are rejected by CHECK constraints
+- [x] #4 Multiple `router_decisions` rows from different backends can reference the same turn
+- [x] #5 `alembic downgrade base` cleanly removes the schema
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Migration tested against a fresh Postgres container
-- [ ] #2 README documents local setup
+- [x] #1 Migration tested against a fresh Postgres container
+- [x] #2 README documents local setup
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Single uv distribution 'relay' in src/relay/ with subpackages store, delegator, executor, client (+ relay.config via pydantic-settings, all later-task settings).
+2. docker-compose.yml: Postgres 16 on host port 55432; .env.example with every setting, no secrets.
+3. SQLAlchemy 2.x async models + Alembic migration 0001 for SPEC §7 tables with router_decisions deviation, CHECK enums, FKs/NOT NULLs, indexes incl. GIN full-text on ideas; plus turns.metadata JSONB (TASK-25 refused flag) and pending_reports table (TASK-26 AC#4/#5).
+4. tests/conftest.py creates a fresh test database per session against the compose Postgres; tests/store/ cover AC#1-#5 (upgrade, NOT NULL/FK failures, CHECK rejections, multi-backend router_decisions, downgrade base).
+5. README local setup section. Verify with uv run pytest / mypy src / ruff check.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-26 W1: single uv distribution relay (src/relay: config, store, delegator, executor, client). Settings contract: <provider>:<model> refs (default local Ollama gemma4:e4b / glm-4.7-flash), async/sync/libpq URL helpers, ENABLED_KINDS validated against TASK_KINDS. Schema 0001_initial adds, beyond SPEC §7: turns.metadata JSONB (TASK-25 refused flag), pending_reports (TASK-26 AC#4/#5), FK indexes, partial unique uq_router_decisions_active. Review fix: CHECK names were double-prefixed by the naming convention — fixed with op.f(), tests now assert exact names. Evidence: 22 passed (tests/store against compose Postgres 16 :55432), mypy/ruff clean, downgrade base→upgrade head round trip, alembic check no diffs. Follow-ups for later tasks: ideas.updated_at only maintained by ORM onupdate; delegator_shared_secret has a dev default (TASK-22 should refuse it off-localhost); DBOS may create a separate *_dbos_sys database (TASK-26).
+<!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Scaffolded the relay uv project (src/relay with config/store/delegator/executor/client), docker-compose Postgres 16, pydantic-settings config and the Alembic idea-graph schema (SPEC §7 + router_decisions deviation + pending_reports, CHECK enums, indexes). Verified by 22 tests against a fresh container DB covering AC#1-#5, plus mypy, ruff and a downgrade/upgrade round trip.
+<!-- SECTION:FINAL_SUMMARY:END -->
