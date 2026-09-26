@@ -8,7 +8,7 @@ relay is a voice ideation partner. You say a wake word and think out loud with a
 |------|-------------|
 | [uv](https://docs.astral.sh/uv/) | Python 3.12+ environment and runner |
 | Docker | Runs Postgres 16. If `docker` is not on your `PATH`, the CLI may be in `~/.docker/bin`. |
-| [Ollama](https://ollama.com) on `localhost:11434` | Local models used by the defaults: `gemma4:e4b` for the Delegator, the assent/ready classifiers and idea summaries, and `qwen3.8:latest` for the research executor (with `gemma4:e4b` as its fallback). Pull both with `ollama pull gemma4:e4b` and `ollama pull qwen3.8:latest`. |
+| [Ollama](https://ollama.com) on `localhost:11434` | Local models used by the defaults: `gemma4:e4b` for the Delegator, the assent/ready classifiers and idea summaries, and `qwen3.8:latest` for the executor. The executor routes each task easy or hard: easy tasks run on `gemma4:e4b`, hard tasks on `openai:gpt-6-luna` with `qwen3.8:latest` as the fallback (without `OPENAI_API_KEY`, hard tasks run on `qwen3.8:latest` alone). Pull both with `ollama pull gemma4:e4b` and `ollama pull qwen3.8:latest`. |
 | ElevenLabs account + API key | Handles STT, VAD, turn-taking and TTS through ElevenLabs Agents. Every voice session uses agent minutes. |
 | [ngrok](https://ngrok.com) with a free dev domain | ElevenLabs calls the Delegator from its own cloud, so the Delegator needs a public URL. |
 | Headset with a microphone | There is no acoustic echo cancellation (see [live voice testing](docs/live-voice-testing.md#echo-gate)). |
@@ -32,6 +32,8 @@ These `.env` keys matter (every setting is in `src/relay/config.py`):
 | `ELEVENLABS_AGENT_ID` | Leave empty until `apply_agent_config.py --apply` prints an id, then paste it here |
 | `*_MODEL` | Model refs of the form `<provider>:<model>`, where the provider is `ollama`, `openai` or `anthropic`. The defaults are all local Ollama models. |
 | `SILENCE_TIMEOUT_S` | Seconds without speech before the client closes a session (default 60) |
+| `OPENAI_API_KEY` | Needed for the default hard-task executor model `openai:gpt-6-luna`. Optional: without it, hard tasks fall back to the local model. |
+| `EXECUTOR_PROJECTS_ROOT` | Where the executor creates one project folder per idea (default `~/relay-projects`). It must be outside the relay repo; the worker refuses a root inside it, `/` or your home directory itself. |
 
 ## Running
 
@@ -107,10 +109,25 @@ Live tests are opt-in and call real local models:
 
 ```bash
 RELAY_LLM_TESTS=1 uv run pytest -q tests/delegator/test_live_ollama.py tests/delegator/commitment/test_live_assent.py
-RELAY_LLM_TESTS=1 RELAY_LIVE_RESEARCH=1 uv run pytest -q tests/executor/research/test_live.py
+RELAY_LLM_TESTS=1 RELAY_LIVE_RESEARCH=1 uv run pytest -q tests/executor/agent/test_live.py
 ```
 
-The end-to-end voice checks (latency, barge-in, commitments) are manual. They are listed in [docs/live-voice-testing.md](docs/live-voice-testing.md).
+The end-to-end voice checks (latency, barge-in, commitments) are manual. They are listed in [docs/live-voice-testing.md](docs/live-voice-testing.md), including the ordered Phase 1 close-out run. After a live session, audit it from the database (read-only; exit code 1 means an unintended dispatch or a session that never closed):
+
+```bash
+uv run python scripts/phase1_audit.py --latest
+uv run python scripts/phase1_audit.py --session <uuid> --json audit.json
+```
+
+## Demo website
+
+`web/` holds a browser demo (Vite + React) that shows the read-back, the assent label, the dispatch and the delivered brief next to the conversation. Today it runs in mock mode only, with a scripted in-browser backend:
+
+```bash
+cd web && npm install && npm run dev:mock   # http://localhost:5173, passcode relay-demo
+```
+
+The real backend is the demo API from TASK-42, which is still being built. See [web/README.md](web/README.md) for details and [web/CONTRACT.md](web/CONTRACT.md) for the API it expects.
 
 ## Layout
 
@@ -125,11 +142,14 @@ The end-to-end voice checks (latency, barge-in, commitments) are manual. They ar
 | `src/relay/delegator/scope.py`, `prompts/system.md` | v1 scope boundary |
 | `src/relay/delegator/llm/`, `adapters/` | Provider-agnostic chat models with fallback, OpenAI wire format |
 | `src/relay/executor/` | DBOS worker, dispatch client, `run_task` workflow, runner registry |
-| `src/relay/executor/research/` | Research runner: durable Pydantic AI agent, web search, `fetch_url` |
+| `src/relay/executor/agent/` | General executor: durable Pydantic AI agent with the pydantic-ai-harness Researcher (web search, SSRF-safe fetch) and Coder (files, shell) tools |
+| `src/relay/executor/routing.py`, `workspace.py` | Easy/hard task routing; per-idea project folders under `EXECUTOR_PROJECTS_ROOT` |
 | `src/relay/client/` | Wake word (`wake.py`), listener state machine (`listener.py`), ElevenLabs voice session |
 | `config/elevenlabs/agent.json` | Versioned ElevenLabs agent config (with `${NAME}` placeholders) |
 | `scripts/apply_agent_config.py` | Renders the agent config and applies it (dry run by default) |
 | `scripts/measure_false_triggers.py` | Wake-word false-trigger measurement (no agent minutes used) |
+| `scripts/phase1_audit.py` | Read-only Phase 1 audit of live sessions |
+| `web/` | Demo website (mock mode until the TASK-42 API exists) |
 | `tests/` | Unit, contract, database and opt-in live tests |
 
 ## Further reading

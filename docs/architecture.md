@@ -33,10 +33,15 @@ This document describes the code on `feat/phase-1`. For the product rationale, s
  ┌──────────────────────────────────────────────────────────────┐
  │ relay.executor worker (FastAPI + DBOS, 127.0.0.1:8001)       │
  │  run_task (durable workflow)                                 │
- │   └ research runner: child workflow relay.research.run       │
- │       Pydantic AI Agent + DBOSDurability                     │
- │       FallbackModel qwen3.8:latest → gemma4:e4b (Ollama)     │
- │       tools: web_search (DuckDuckGo), fetch_url (SSRF-safe)  │
+ │   └ executor runner (executor/agent), kind "research"        │
+ │       route step: easy/hard (router gemma4:e4b)              │
+ │       workspace step: ~/relay-projects/<slug>-<id8>          │
+ │       child workflow relay.research.run:                     │
+ │         Pydantic AI Agent + DBOSDurability                   │
+ │         easy: gemma4:e4b · hard: gpt-6-luna → qwen3.8        │
+ │         pydantic-ai-harness tools (each call a DBOS step):   │
+ │           Researcher: web_search, web_fetch (SSRF-safe)      │
+ │           Coder: file tools + shell, in the project folder   │
  │     → render step: artifacts/<idea_id>/<task_id>.md          │
  │   → artifacts row, idea "delivered", pending_reports row     │
  └───────────────┬──────────────────────────────────────────────┘
@@ -56,13 +61,14 @@ Components and where they live:
 | Component | Code | Notes |
 |-----------|------|-------|
 | Wake listener | `src/relay/client/listener.py`, `wake.py` | States: `listening → starting → active → closing`. Writes `sessions` (with `wake_trigger`) and sets `ended_at`. Closes the microphone before the voice session opens its own. |
-| Voice session | `src/relay/client/elevenlabs_session.py` | The only module that imports the ElevenLabs SDK. Uses the websocket `Conversation` with `requires_auth=True`, and sends the session id as a dynamic variable and in `custom_llm_extra_body`. |
+| Voice session | `src/relay/client/elevenlabs_session.py` | The only module that imports the ElevenLabs SDK. Uses the websocket `Conversation` with `requires_auth=True`, and sends the session id as a dynamic variable and in `custom_llm_extra_body`. While the listener waits for the wake word, it prefetches a fresh signed URL (`prefetch()`), so a trigger only has to open the websocket. A failed or stale prefetch falls back to fetching the URL on demand. The session log line says which one was used. |
 | Agent config | `config/elevenlabs/agent.json`, `scripts/apply_agent_config.py` | Custom LLM at `${DELEGATOR_PUBLIC_URL}/v1`, `end_call` system tool, `turn_eagerness: patient`, backchannel ignore terms, server silence timeout = `SILENCE_TIMEOUT_S` + 15 s, `enable_auth: true`. |
 | Delegator | `src/relay/delegator/app.py`, `service.py` | OpenAI-compatible chat completions, streamed or not. Internal tools run server-side and never reach the stream. ElevenLabs' own tools (for example `end_call`) are passed through as `tool_calls`. |
 | Chat models | `src/relay/delegator/llm/` | `DELEGATOR_MODEL` wrapped in a `FallbackChatModel` (`DELEGATOR_FALLBACK_MODEL`). It hands over if the primary fails or sends nothing within 5 s (30 s when both refs are the same model). |
 | Dispatch | `src/relay/executor/dispatch.py`, `common.py` | `start_task` is idempotent per commitment (row lock plus the deterministic workflow id `task-<id>` with DBOS "return existing"). The Delegator process only holds a `DBOSClient`. |
 | Worker | `src/relay/executor/worker.py`, `workflows.py` | Launches DBOS with its system tables in the `dbos` schema of the same database. It recovers pending workflows and re-enqueues orphaned `queued` tasks on startup. |
-| Research runner | `src/relay/executor/research/` | Registered as a durable runner. Up to 30 model requests per run. The wall-clock timeout (`RELAY_RESEARCH_TIMEOUT_S`, default 20 min) is persisted by DBOS. |
+| Executor runner | `src/relay/executor/agent/` | One general executor, registered as the durable runner for the `research` kind (the persisted kind name is unchanged; `code` is not enabled yet, TASK-33). A route step classifies the task easy or hard once (TASK-46). Easy runs on `RESEARCH_EASY_MODEL`; hard runs on `RESEARCH_HARD_MODEL` (default `openai:gpt-6-luna`) with `RESEARCH_HARD_FALLBACK_MODEL` behind it. Tools come from pydantic-ai-harness: the `Researcher` (web search and web fetch) and the `Coder` set (file read/write/edit and a shell). All of them form one per-run dynamic toolset, so every tool call is a DBOS step. Up to 30 model requests per run. The wall-clock timeout (`RELAY_RESEARCH_TIMEOUT_S`, default 20 min) is persisted by DBOS. DBOS workflow and step names keep their `relay.research.*` values. |
+| Project folders | `src/relay/executor/workspace.py` | Each idea gets its own folder `<EXECUTOR_PROJECTS_ROOT>/<slug>-<first 8 hex of idea id>` (default root `~/relay-projects`). The folder is keyed by idea id, so a renamed idea keeps its folder. The file tools and the shell are rooted there. The root must not be `/`, your home directory itself, or anywhere inside the relay repo. |
 
 ## One voice turn
 
@@ -150,8 +156,10 @@ A report counts as delivered only if the summary sentence appears, word for word
 | Scope boundary, layer 3 | `scope.detect_out_of_scope`, `hooks/scope.py` | A deterministic detector tuned for precision. It adds a pointed refusal note and records `{"refused": true, "refusal_reason": …}` in the user turn's `metadata`. |
 | Private agent | `agent.json` `platform_settings.auth.enable_auth: true` | Only signed-URL sessions can start. The client always connects with `requires_auth=True`. |
 | Shared secret | `delegator/auth.py` | Every chat route requires `Authorization: Bearer <DELEGATOR_SHARED_SECRET>`, compared in constant time; otherwise 401. The Delegator refuses to start with an empty secret, or with the dev placeholder unless `RELAY_ALLOW_DEV_SECRET=1`. `apply_agent_config.py --apply` refuses the placeholder and localhost URLs, with no opt-in. |
-| SSRF-safe `fetch_url` | `executor/research/tools.py` | Allows only http(s). Refuses hosts that resolve to loopback, private, link-local (including cloud metadata), CGNAT, multicast, unspecified or reserved addresses, and re-checks on every manually followed redirect (at most 5). Limits: 2 MB body, 15 s total, 12,000 characters returned. The research agent has no send, post or publish tools. |
-| Research timeout | `executor/research/runner.py` | `RELAY_RESEARCH_TIMEOUT_S` (default 1200 s) is set as a DBOS workflow timeout, so it holds across a crash and recovery. A timed-out task is marked `failed`. |
+| SSRF-safe web fetch | harness `WebFetch(local=True)` via `Researcher`, `executor/agent/agent.py` | The hand-rolled `fetch_url` is gone. When the model has no native fetch, the local fallback uses pydantic-ai's `safe_download`, which resolves the host and refuses private and internal addresses, including cloud metadata. Redirects are followed by hand and checked each time. `tests/executor/agent/test_tools.py` checks that a private address is refused. The agent has no send, post or publish tools. |
+| Shell environment | `executor/agent/agent.py` (`shell_env`, `SHELL_DENIED_ENV_PATTERNS`) | The shell does not inherit the worker's environment. It gets only `PATH`, `HOME`, `LANG` and `TMPDIR`. Patterns such as `DATABASE_URL`, `DELEGATOR_*`, `ELEVENLABS_*`, `*_API_KEY`, `*_SECRET` and `*_TOKEN` are stripped as well. `gh` and `glab` are denied. This is not a sandbox: other commands, including `git push` through a credential helper, still work. |
+| Deliberately off | `executor/agent/agent.py` (`workspace_capabilities`) | Sub-agents are off: local models are slow and each delegation multiplies model calls. Repo context is off: it turns every model request into a streamed one, which changes the durable step names, and a fresh project folder has nothing to load. Both are to be revisited (a frontier default executor model; TASK-33 working in existing repos). |
+| Executor timeout | `executor/agent/runner.py` | `RELAY_RESEARCH_TIMEOUT_S` (default 1200 s) is set as a DBOS workflow timeout, so it holds across a crash and recovery. A timed-out task is marked `failed`. |
 | Fail-safe state | `delegator/contracts.py` | Pending proposals live only in memory. A restart or an LRU eviction drops them, which means no dispatch. |
 
 ## Key decisions
@@ -170,6 +178,7 @@ To list them: `backlog decision list --plain`.
 - **No WebRTC.** The installed ElevenLabs Python SDK only has the websocket transport. The transport is hidden behind `VoiceSession`, so it can be swapped later.
 - **No acoustic echo cancellation.** On a headset whose mic hears its own speaker, the agent's voice reads as a user barge-in and replies get cut into roughly 1 s chunks. The echo gate makes the mic half-duplex while agent audio plays (`adaptive` by default, `on` or `off` also available). In `on` mode you cannot interrupt the agent by voice. In `adaptive` mode an interruption has to be louder than the playback by the margin.
 - **Single-slot Ollama.** One local model serves one request at a time. Background model work (ready score, idea summaries) is deferred to idle periods, but a research run and a voice turn on the same Ollama instance still compete. Assent classification is on the TTFT path and is bounded to 4 s.
-- **DNS-rebinding residual.** `fetch_url` resolves and checks the host separately from httpx's own connect, so a rebinding host could still switch to a private address in between.
+- **Shell is not sandboxed.** The executor shell has a scrubbed environment and a small command denylist, but no OS sandbox. The code comment says to revisit this when the code runner (TASK-33) lands.
+- **Native fetch and search.** The harness uses the provider's own web search and fetch when the model supports them, and the worker's local tools otherwise (local Ollama models always take the local path). A native fetch runs on the provider's servers, which cannot reach services on the owner's machine, so relay's SSRF check is not needed there. The trade-off is that the search queries and fetched pages pass through that provider.
 - **Undocumented custom-LLM URL form.** ElevenLabs does not document whether the Server URL is a base URL or the full endpoint. The Delegator therefore serves all four route aliases and logs `delegator: chat request on <path>` so you can see which one is used. See [elevenlabs-localhost-connectivity.md](elevenlabs-localhost-connectivity.md).
 - **Tunnel required.** ElevenLabs Agents calls the LLM from its own cloud, so the Delegator has to be publicly reachable (ngrok). Cloudflare quick tunnels do not carry SSE.
