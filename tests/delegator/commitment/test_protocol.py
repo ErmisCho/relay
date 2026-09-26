@@ -371,7 +371,7 @@ async def test_ready_score_is_logged_after_the_response_and_never_proposes(
             await s.scalars(select(RouterDecision).where(RouterDecision.turn_id == turn_id))
         )
     assert [(r.backend, r.ready, r.is_active) for r in rows] == [
-        ("frontier", "ready_to_execute", True)
+        ("frontier", "ready_to_execute", False)
     ]
     assert rows[0].latency_ms is not None
     assert c.store.get(uuid.UUID(c.session_id)).pending_proposal is None

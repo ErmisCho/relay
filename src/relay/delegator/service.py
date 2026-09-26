@@ -33,6 +33,7 @@ from relay.delegator.adapters.openai_compat import (
     content_text,
     tool_call_payload,
 )
+from relay.delegator.capabilities import get_capabilities
 from relay.delegator.contracts import (
     SessionStore,
     SystemPrefixProvider,
@@ -42,7 +43,9 @@ from relay.delegator.contracts import (
     TurnHook,
 )
 from relay.delegator.demo.events import emit
+from relay.delegator.hooks.router import ActiveRoute, RouterHook
 from relay.delegator.llm.base import ChatModel
+from relay.delegator.llm.factory import build_local_model, with_normal_fallback
 from relay.delegator.sse import SSE_DONE, sse_frame
 from relay.store.models import Turn
 
@@ -249,6 +252,13 @@ class _Turn:
     completed: bool = False
     # ``SessionState.user_turn_index`` of the user turn this request answers.
     user_turn_index: int = 0
+    # Model serving this turn; None = the Delegator's normal model (TASK-37 routing).
+    chat_model: ChatModel | None = None
+    # The active router's result, and the device-local model's name when it was chosen.
+    route: ActiveRoute | None = None
+    local_model_name: str | None = None
+    # True once the device-local model streamed part of the answer.
+    served_local: bool = False
 
 
 def _last_user_index(messages: list[dict[str, Any]]) -> int | None:
@@ -306,6 +316,9 @@ class DelegatorService:
         # Latest finalisation per session; the next request of that session waits on it.
         self._finalizing: dict[uuid.UUID, asyncio.Task[None]] = {}
         self._warned_sessions: OrderedDict[uuid.UUID, None] = OrderedDict()
+        # Active per-turn routing (TASK-37) runs through the RouterHook, if it is installed.
+        self._router = next((h for h in hooks if isinstance(h, RouterHook)), None)
+        self._local_models: dict[tuple[str, str], ChatModel] = {}
 
     def _warn_derived_session(self, session_id: uuid.UUID, source: str) -> None:
         if source == "fresh":
@@ -473,12 +486,21 @@ class DelegatorService:
             user_text=user_text,
             user_turn_id=user_turn_id,
         )
+        # The active router runs alongside the before_model hooks, inside its own budget.
+        # Commitment-protocol turns (a read-back awaiting assent) are never routed (AC#4).
+        route_task = (
+            asyncio.create_task(self._router.route_turn(ctx), name=f"route:{session_id}")
+            if self._router is not None and state.pending_proposal is None
+            else None
+        )
         notes: list[str] = []
         for hook in self.hooks:
             try:
                 notes.extend(await hook.before_model(ctx))
             except Exception:
                 log.exception("delegator: hook %r before_model failed", hook)
+        route = await route_task if route_task is not None else None
+        chat_model, local_name = self._select_model(route, session_id)
         upstream = _with_system_prefix(messages, self._system_prefix())
         user_idx = _last_user_index(upstream)
         note_messages = [{"role": "system", "content": n} for n in notes if n]
@@ -503,7 +525,30 @@ class DelegatorService:
             completion_id=f"chatcmpl-{uuid.uuid4().hex}",
             created=int(time.time()),
             model=body.model or self.chat_model.model_name,
+            chat_model=chat_model,
+            route=route,
+            local_model_name=local_name,
         )
+
+    def _select_model(
+        self, route: ActiveRoute | None, session_id: uuid.UUID
+    ) -> tuple[ChatModel, str | None]:
+        """The device's local model for a ``small_local`` turn on a capable device, else the
+        normal model. A missing decision (off, timeout, error) always means the normal one."""
+        if route is None or route.decision is None or route.decision.difficulty != "small_local":
+            return self.chat_model, None
+        caps = get_capabilities(session_id)
+        if not (caps.can_run_local and caps.local_model and caps.local_base_url):
+            return self.chat_model, None
+        key = (caps.local_base_url, caps.local_model)
+        try:
+            local = self._local_models.get(key)
+            if local is None:
+                local = self._local_models[key] = build_local_model(*key)
+        except Exception:
+            log.exception("delegator: building the local model %s failed", key)
+            return self.chat_model, None
+        return with_normal_fallback(local, self.chat_model), local.model_name
 
     async def _run(self, turn: _Turn) -> AsyncIterator[str | list[_Call]]:
         """Yield speech text as it streams, then at most one list of external tool calls."""
@@ -511,7 +556,7 @@ class DelegatorService:
         round_no = 0
         empty_attempts = 0
         while round_no <= MAX_TOOL_ROUNDS:
-            model = self._model_for_attempt(empty_attempts)
+            model = self._model_for_attempt(turn, empty_attempts)
             assert model is not None
             last_round = round_no == MAX_TOOL_ROUNDS
             tools = turn.external_tools if last_round else turn.all_tools
@@ -528,6 +573,8 @@ class DelegatorService:
                 ):
                     if delta.model:
                         turn.model_used = delta.model
+                        if delta.model == turn.local_model_name:
+                            turn.served_local = True
                     _add_usage(turn.usage, getattr(delta, "usage", None))
                     if delta.content:
                         if turn.first_token_at is None:
@@ -554,7 +601,7 @@ class DelegatorService:
             if not ordered and not round_text:
                 # Empty answer (seen live from gemma4): the agent would say nothing at all.
                 empty_attempts += 1
-                if self._model_for_attempt(empty_attempts) is not None:
+                if self._model_for_attempt(turn, empty_attempts) is not None:
                     log.warning("delegator: empty model output; retry %d", empty_attempts)
                     continue
                 log.warning("delegator: empty model output after retries; asking to repeat")
@@ -589,6 +636,9 @@ class DelegatorService:
                 for call in internal:
                     result = await self._execute(call, turn)
                     messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
+                # Tool results (a commitment read-back, recall, status) are answered by the
+                # normal model: small_local covers plain conversation only.
+                turn.chat_model = self.chat_model
                 round_no += 1
                 continue
             if internal:
@@ -598,12 +648,16 @@ class DelegatorService:
                 yield external
             return
 
-    def _model_for_attempt(self, empty_attempts: int) -> ChatModel | None:
-        """Model for a round after ``empty_attempts`` empty answers: same model, then fallback."""
+    def _model_for_attempt(self, turn: _Turn, empty_attempts: int) -> ChatModel | None:
+        """Model for a round after ``empty_attempts`` empty answers: same model, then fallback.
+
+        For a small_local turn the fallback is the normal model.
+        """
+        model = turn.chat_model or self.chat_model
         if empty_attempts <= 1:
-            return self.chat_model
+            return model
         if empty_attempts == 2:
-            fallback: ChatModel | None = getattr(self.chat_model, "fallback", None)
+            fallback: ChatModel | None = getattr(model, "fallback", None)
             return fallback
         return None
 
@@ -703,10 +757,11 @@ class DelegatorService:
         model_used = turn.model_used or self.chat_model.model_name
         state = turn.ctx.state
         log.info(
-            "delegator turn session=%s ttft_ms=%s model=%s",
+            "delegator turn session=%s ttft_ms=%s model=%s route=%s",
             state.session_id,
             latency_ms,
             model_used,
+            "small_local" if turn.served_local else "frontier",
         )
         meta: dict[str, Any] = {}
         if not turn.completed:
@@ -715,6 +770,17 @@ class DelegatorService:
             meta["tool_calls"] = [c.name for c in turn.external_calls]
         if turn.usage:
             meta["usage"] = dict(turn.usage)
+        if turn.route is not None:
+            decision = turn.route.decision
+            meta["router"] = {
+                "backend": turn.route.backend,
+                "status": turn.route.status,
+                "difficulty": decision.difficulty if decision else None,
+                "latency_ms": turn.route.latency_ms,
+            }
+        if turn.local_model_name is not None and not turn.served_local:
+            # Routed small_local, but the local model failed or stalled: the normal one served.
+            meta["local_fallback"] = True
         turn_id = await self._safe(
             "persisting assistant turn",
             persistence.record_turn(
@@ -723,7 +789,7 @@ class DelegatorService:
                 role="assistant",
                 text=text,
                 idea_id=state.current_idea_id,
-                route="frontier",
+                route="small_local" if turn.served_local else "frontier",
                 model_used=model_used,
                 latency_ms=latency_ms,
                 meta=meta,

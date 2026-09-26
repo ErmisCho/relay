@@ -19,6 +19,12 @@ log = logging.getLogger(__name__)
 DEFAULT_OPENAI_REASONING_EFFORT = "none"
 # Spellings that mean "don't send reasoning_effort; use the provider's default".
 _PROVIDER_DEFAULT_EFFORTS = frozenset({"", "default"})
+# ``model_used`` prefix of a turn served by the client device's own Ollama (TASK-37), so it
+# never reads like the server-side ``ollama:`` model even when both are gemma4.
+LOCAL_MODEL_PREFIX = "local:"
+# A small_local turn hands over to the normal model if the device's Ollama has not produced
+# its first delta by then (warm gemma4 answers in well under 1 s; a cold load takes longer).
+LOCAL_FIRST_DELTA_TIMEOUT_S = 2.0
 
 
 class _DelegatorLLMEnv(BaseSettings):
@@ -113,3 +119,33 @@ def build_chat_model(settings: Settings) -> ChatModel:
         model.first_delta_timeout,
     )
     return model
+
+
+def build_local_model(base_url: str, model: str) -> ChatModel:
+    """The client device's Ollama (``CapabilityProfile.local_base_url``/``local_model``).
+
+    ``base_url`` is the OpenAI-compatible base; a bare host (no ``/v1``) is accepted.
+    ``model_name`` is ``local:<model>``.
+    """
+    root = base_url.rstrip("/").removesuffix("/v1")
+    return OpenAICompatChatModel(
+        model,
+        api_key="ollama",
+        base_url=f"{root}/v1",
+        name=f"{LOCAL_MODEL_PREFIX}{model}",
+        reasoning_effort="none",
+    )
+
+
+def with_normal_fallback(
+    local: ChatModel,
+    normal: ChatModel,
+    *,
+    first_delta_timeout: float | None = None,
+) -> FallbackChatModel:
+    """``local`` first; on an error or a missed first-delta deadline (default
+    ``LOCAL_FIRST_DELTA_TIMEOUT_S``), the whole turn restarts on ``normal`` (the Delegator's
+    usual model, itself with its own fallback)."""
+    if first_delta_timeout is None:
+        first_delta_timeout = LOCAL_FIRST_DELTA_TIMEOUT_S
+    return FallbackChatModel(local, normal, first_delta_timeout=first_delta_timeout)

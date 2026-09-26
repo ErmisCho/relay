@@ -81,11 +81,12 @@ async def test_shadow_run_does_not_delay_the_response_and_logs_inactive_rows(
     db: async_sessionmaker[AsyncSession],
 ) -> None:
     """Bug caught: shadow routers awaited on the request path (TTFT grows by their latency),
-    or shadow rows written as ``is_active=true`` even when ROUTER_ACTIVE names the backend."""
+    or shadow rows written as ``is_active=true``. (ROUTER_ACTIVE=none: an active backend is
+    routed on and marked active since TASK-37, see ``test_active.py``.)"""
     slow, failing = SlowRouter(), TimingOutRouter()
     hook = RouterHook(backends=[slow, failing])
     app = create_app(
-        make_settings(router_active="llm", router_shadow=["laya", "llm"]),
+        make_settings(router_active="none", router_shadow=["laya", "llm"]),
         chat_model=ScriptedChatModel([text("Who ", "rides it?")]),
         registry=ToolRegistry(),
         hooks=[hook],

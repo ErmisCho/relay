@@ -801,7 +801,9 @@ class CommitmentHook:
                         backend="frontier",
                         ready=ready,
                         latency_ms=latency_ms,
-                        is_active=True,
+                        # A reference score, not the turn's routing decision: the active row per
+                        # turn belongs to ROUTER_ACTIVE (TASK-37), and both would collide.
+                        is_active=False,
                     )
                 )
             if item.session_id is not None:

@@ -47,3 +47,22 @@ def test_agreement_is_per_turn_and_ignores_task_rows() -> None:
     assert llm["agreement"]["difficulty"]["pairs"] == 0
     assert llm["timeout_rate"] == 1 / 3
     assert llm["latency_ms"] == {"p50": 700.0, "p95": 2000.0}
+
+
+def test_route_report_counts_local_fallbacks_from_turn_metadata() -> None:
+    """Bug caught: the report reading a different metadata key than the Delegator writes for a
+    small_local turn the normal model had to serve, so fallbacks always show as 0."""
+    rows = [
+        {"route": "small_local", "model_used": "local:gemma4:e4b", "latency_ms": 300, "meta": {}},
+        {"route": "frontier", "model_used": "openai:gpt-6-luna", "latency_ms": 900, "meta": {}},
+        {
+            "route": "frontier",
+            "model_used": "openai:gpt-6-luna",
+            "latency_ms": 2500,
+            "meta": {"local_fallback": True},
+        },
+    ]
+    routes = _load().build_route_report(rows)
+    assert routes["small_local"]["turns"] == 1
+    assert routes["frontier"]["local_fallbacks"] == 1
+    assert routes["frontier"]["ttft_ms"] == {"p50": 900.0, "p95": 2500.0}
