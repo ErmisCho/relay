@@ -82,11 +82,14 @@ Write-Host "Everything is up."
 Write-Host "  Delegator: http://127.0.0.1:8000  (log: $delegatorLog)"
 Write-Host "  Executor:  http://127.0.0.1:8001  (log: $executorLog)"
 Write-Host ""
+$secretLine = Select-String -Path .env -Pattern '^DELEGATOR_SHARED_SECRET=(.*)$' | Select-Object -First 1
+$secret = if ($secretLine) { $secretLine.Matches[0].Groups[1].Value } else { "dev-secret-change-me" }
+
 Write-Host "Try it (use curl.exe, not the Invoke-WebRequest alias, for real streaming):"
-Write-Host '  curl.exe -N http://127.0.0.1:8000/v1/chat/completions `'
-Write-Host '    -H "Authorization: Bearer dev-secret-change-me" `'
-Write-Host '    -H "Content-Type: application/json" `'
-Write-Host '    -d "@tests/delegator/fixtures/elevenlabs_custom_llm_request.json"'
+Write-Host "  curl.exe -N http://127.0.0.1:8000/v1/chat/completions ``"
+Write-Host "    -H ""Authorization: Bearer $secret"" ``"
+Write-Host "    -H ""Content-Type: application/json"" ``"
+Write-Host "    -d ""@tests/delegator/fixtures/elevenlabs_custom_llm_request.json"""
 Write-Host ""
 Write-Host "Ctrl-C to stop."
 

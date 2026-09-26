@@ -67,6 +67,9 @@ if ! kill -0 "$executor_pid" 2>/dev/null; then
   exit 1
 fi
 
+secret="$(grep '^DELEGATOR_SHARED_SECRET=' .env | head -1 | cut -d= -f2-)"
+secret="${secret:-dev-secret-change-me}"
+
 cat <<EOF
 
 Everything is up.
@@ -75,7 +78,7 @@ Everything is up.
 
 Try it:
   curl -N http://127.0.0.1:8000/v1/chat/completions \\
-    -H "Authorization: Bearer dev-secret-change-me" \\
+    -H "Authorization: Bearer $secret" \\
     -H "Content-Type: application/json" \\
     -d @tests/delegator/fixtures/elevenlabs_custom_llm_request.json
 
