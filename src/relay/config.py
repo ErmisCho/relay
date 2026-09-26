@@ -86,6 +86,13 @@ class Settings(BaseSettings):
     research_model: str = "ollama:qwen3.8:latest"
     research_fallback_model: str = "ollama:gemma4:e4b"
 
+    # Reasoning effort sent to openai: delegator models (gpt-6-luna accepts none|low|medium|
+    # high|xhigh). Keep "none" for voice: default reasoning measured 3.7 s TTFT vs 1.2 s, and
+    # hidden reasoning tokens count against ElevenLabs' 300-token reply cap. "default" = omit.
+    delegator_reasoning_effort: Literal["none", "low", "medium", "high", "xhigh", "default"] = (
+        "none"
+    )
+
     # --- Delegator / voice -----------------------------------------------------------------
     delegator_shared_secret: str = "dev-secret-change-me"
     delegator_public_url: str = "http://localhost:8000"
