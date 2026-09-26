@@ -1,0 +1,24 @@
+[project]
+name = "relay"
+version = "0.1.0"
+description = "Voice-first ideation agent: wake word, ElevenLabs voice loop, Delegator, durable executors and a Postgres idea graph."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.4",
+  "mypy>=1.10",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
