@@ -6,14 +6,20 @@ then ``focus_idea``); there is no automatic "last focused idea".
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from typing import Any
 
+from sqlalchemy import or_, select
+
 from relay.delegator.contracts import ToolContext, ToolResult
+from relay.delegator.demo.events import BUS, emit
 from relay.store import ideas_repo
 from relay.store.ideas_repo import IdeaDigest
-from relay.store.models import EDGE_RELATIONS
+from relay.store.models import EDGE_RELATIONS, Idea, IdeaEdge
+
+log = logging.getLogger(__name__)
 
 # ~1k tokens at ~4 characters per token.
 RECALL_MAX_CHARS = 4000
@@ -184,6 +190,7 @@ class FocusIdeaTool:
         raw_id = args.get("idea_id")
         title = " ".join(str(args.get("new_title") or "").split())[:MAX_TITLE_CHARS]
         current = ctx.state.current_idea_id
+        change = "switched"
         if raw_id:
             idea_id = _parse_uuid(raw_id)
             if idea_id is None:
@@ -207,6 +214,7 @@ class FocusIdeaTool:
                 message = f'Back on the existing idea "{existing.title}", id {idea_id}.'
             else:
                 idea_id = await ideas_repo.create_idea(ctx.db, title)
+                change = "created"
                 message = (
                     f'Started a new idea, "{title}", id {idea_id}. It stays the current idea; '
                     "do not call focus_idea again until the user moves to a different idea."
@@ -216,6 +224,8 @@ class FocusIdeaTool:
         ctx.state.current_idea_id = idea_id
         if ctx.user_turn_id is not None:
             await ideas_repo.attribute_turn(ctx.db, ctx.user_turn_id, idea_id)
+        if BUS.enabled:
+            await _emit_current_idea(ctx, idea_id, change)
         return ToolResult(message)
 
 
@@ -257,3 +267,36 @@ class LinkIdeasTool:
         created = await ideas_repo.link_ideas(ctx.db, from_id, to_id, str(relation))
         sentence = f'"{titles[from_id]}" {relation.replace("_", " ")} "{titles[to_id]}"'
         return ToolResult(f"Noted: {sentence}." if created else f"Already noted: {sentence}.")
+
+
+async def _emit_current_idea(ctx: ToolContext, idea_id: uuid.UUID, change: str) -> None:
+    """Demo feed: the idea now in focus, with its status and the edges touching it."""
+    try:
+        async with ctx.db() as s:
+            idea = await s.get(Idea, idea_id)
+            edges = (
+                await s.scalars(
+                    select(IdeaEdge).where(
+                        or_(IdeaEdge.from_idea == idea_id, IdeaEdge.to_idea == idea_id)
+                    )
+                )
+            ).all()
+    except Exception:
+        log.warning("ideas: loading idea %s for the demo feed failed", idea_id, exc_info=True)
+        return
+    if idea is None:
+        return
+    emit(
+        ctx.state.session_id,
+        "current_idea",
+        {
+            "idea_id": str(idea_id),
+            "title": idea.title,
+            "status": idea.status,
+            "change": change,
+            "edges": [
+                {"from_idea": str(e.from_idea), "to_idea": str(e.to_idea), "relation": e.relation}
+                for e in edges
+            ],
+        },
+    )

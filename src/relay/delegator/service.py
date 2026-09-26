@@ -41,6 +41,7 @@ from relay.delegator.contracts import (
     TurnContext,
     TurnHook,
 )
+from relay.delegator.demo.events import emit
 from relay.delegator.llm.base import ChatModel
 from relay.delegator.sse import SSE_DONE, sse_frame
 from relay.store.models import Turn
@@ -56,6 +57,8 @@ APOLOGY_TEXT = (
 #: Spoken when the model returns nothing at all, even after retries.
 EMPTY_REPLY_TEXT = "Sorry, could you say that again?"
 SESSION_HEADER = "x-relay-session-id"
+#: Set to ``text`` by the demo text-chat endpoint; anything else is a voice turn.
+CHANNEL_HEADER = "x-relay-channel"
 _WARNED_SESSIONS_MAX = 1024
 # How long a new request waits for the same session's previous turn to finish
 # persisting / running after_response, so hooks observe turns in order.
@@ -430,6 +433,16 @@ class DelegatorService:
                     ),
                 )
             state.extra[LAST_USER_REQUEST_KEY] = _UserRequest(digest, user_text, user_turn_id)
+            if not resent and user_turn_id is not None:
+                emit(
+                    session_id,
+                    "user_turn",
+                    {
+                        "turn_id": str(user_turn_id),
+                        "text": user_text,
+                        "channel": "text" if headers.get(CHANNEL_HEADER) == "text" else "voice",
+                    },
+                )
         else:
             await self._safe("upserting session", persistence.ensure_session(self.db, session_id))
 
@@ -680,7 +693,7 @@ class DelegatorService:
             meta["interrupted"] = True
         if turn.external_calls:
             meta["tool_calls"] = [c.name for c in turn.external_calls]
-        await self._safe(
+        turn_id = await self._safe(
             "persisting assistant turn",
             persistence.record_turn(
                 self.db,
@@ -694,6 +707,16 @@ class DelegatorService:
                 meta=meta,
                 ts=turn.response_started,
             ),
+        )
+        emit(
+            state.session_id,
+            "assistant_turn",
+            {
+                "turn_id": str(turn_id) if turn_id is not None else None,
+                "text": text,
+                "interrupted": not turn.completed,
+                "ttft_ms": latency_ms,
+            },
         )
         completed: dict[int, bool] = state.extra.setdefault(COMPLETED_KEY, {})
         completed[turn.user_turn_index] = turn.completed

@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from relay.config import Settings
 from relay.delegator.contracts import TurnContext
+from relay.delegator.demo.events import emit
 from relay.delegator.scope import (
     REFUSAL_PHRASE,
     REFUSED_KEY,
@@ -70,6 +71,19 @@ class ScopeHook:
         ctx.state.extra[REFUSED_KEY] = hit.category.value
         log.info("scope: refusing out-of-scope request (%s)", hit.reason)
         notes.append(refusal_note(hit))
+        emit(
+            ctx.state.session_id,
+            "scope_refusal",
+            {
+                "turn_id": str(ctx.user_turn_id) if ctx.user_turn_id is not None else None,
+                "utterance": ctx.user_text,
+                "category": hit.category.value,
+                "reason": (
+                    f"Relay v1 only thinks and delegates research; it does not act on "
+                    f"{hit.category.value} ({hit.matched!r})."
+                ),
+            },
+        )
         if ctx.user_turn_id is not None:
             try:
                 await record_refusal(ctx.db, ctx.user_turn_id, hit.reason)

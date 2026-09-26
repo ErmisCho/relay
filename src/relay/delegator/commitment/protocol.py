@@ -64,6 +64,7 @@ from relay.delegator.contracts import (
     ToolResult,
     TurnContext,
 )
+from relay.delegator.demo.events import emit, emit_dispatch
 from relay.delegator.llm.base import ChatModel
 from relay.delegator.llm.factory import build_model
 from relay.delegator.scope import ArtifactKind, scope_guard, validate_commitment_args
@@ -291,6 +292,19 @@ class ProposeCommitmentTool:
             proposed_at_user_turn=state.user_turn_index,
         )
         state.extra.pop(ASSENT_KEY, None)
+        p = state.pending_proposal
+        emit(
+            state.session_id,
+            "proposal",
+            {
+                "proposal_id": str(p.proposal_id),
+                "idea_id": str(p.idea_id) if p.idea_id is not None else None,
+                "goal": p.goal,
+                "scope_excludes": p.scope_excludes,
+                "artifact_kind": p.artifact_kind,
+                "readback": p.readback_text,
+            },
+        )
         log.info(
             "commitment: proposal %s session=%s turn=%d",
             state.pending_proposal.proposal_id,
@@ -365,6 +379,7 @@ class DispatchTaskTool:
             scope_args = {"artifact_kind": pending.artifact_kind, "kind": pending.kind}
             if (refused := scope_guard(scope_args, ctx)) is not None:
                 state.pending_proposal = None
+                _dropped(state, pending.proposal_id, "scope_guard")
                 return refused
         verdict = authorise(state)
         if isinstance(verdict, str):
@@ -435,7 +450,7 @@ class Reservation:
             self.held = False
             self._wake.set()
 
-    def cancel(self, reason: str) -> bool:
+    def cancel(self, reason: str, *, drop_reason: str = "not_affirmative") -> bool:
         """Cancel if nothing was written yet; True when cancelled."""
         if self.status != "reserved":
             return False
@@ -443,6 +458,7 @@ class Reservation:
         self.cancel_reason = reason
         self.held = False
         self._wake.set()
+        _dropped(self._state, self.proposal.proposal_id, drop_reason)
         log.info("commitment: reservation %s cancelled: %s", self.proposal.proposal_id, reason)
         return True
 
@@ -493,6 +509,15 @@ class Reservation:
             log.exception("commitment: start_task failed for commitment %s", self.commitment_id)
             return
         self.task_id = started.task_id
+        emit_dispatch(
+            state.session_id,
+            proposal_id=self.proposal.proposal_id,
+            commitment_id=self.commitment_id,
+            task_id=started.task_id,
+            workflow_id=started.workflow_id,
+            kind=self.proposal.kind,
+            idea_id=idea_id,
+        )
         log.info(
             "commitment: dispatched commitment=%s task=%s session=%s assent=%r",
             self.commitment_id,
@@ -508,7 +533,7 @@ def cancel_waiting_reservations(reason: str) -> list[Reservation]:
     Each cancellation is logged at WARNING and leaves a note for the session's next turn (only
     reachable if the process keeps running; after a restart the log line is the record).
     """
-    cancelled = [r for r in list(_LIVE_RESERVATIONS) if r.cancel(reason)]
+    cancelled = [r for r in list(_LIVE_RESERVATIONS) if r.cancel(reason, drop_reason="expired")]
     for res in cancelled:
         res._state.extra[NEXT_NOTE_KEY] = NOTE_CANCELLED_SHUTDOWN
         log.warning(
@@ -567,6 +592,8 @@ class _Unscored:
     transcript: list[tuple[str, str]]
     db: async_sessionmaker[AsyncSession]
     settings: Settings
+    session_id: uuid.UUID | None = None
+    idea_id: uuid.UUID | None = None
 
 
 class CommitmentHook:
@@ -650,6 +677,7 @@ class CommitmentHook:
             except BaseException:  # raised or request cancelled: never leave a hold behind
                 res.cancel("classification of a later request did not finish")
                 raise
+            _assent(state, res.proposal.proposal_id, ctx, utterance, result.label)
             if res.status != "reserved":
                 return [*notes, NOTE_CANCELLED[AssentLabel.HEDGE]]
             follow_up = _is_follow_up(ctx.messages, res, state)
@@ -671,16 +699,20 @@ class CommitmentHook:
             return notes
         if state.user_turn_index != pending.proposed_at_user_turn + 1:
             state.pending_proposal = None
+            _dropped(state, pending.proposal_id, "expired")
             log.info("commitment: proposal %s expired", pending.proposal_id)
             return notes
         streamed = state.extra.get(PROPOSAL_STREAM_KEY, {}).get(pending.proposal_id) is True
         if not streamed or not readback_delivered(ctx.messages, pending.readback_text):
             state.pending_proposal = None
+            _dropped(state, pending.proposal_id, "readback_interrupted")
             log.info("commitment: proposal %s read-back not delivered", pending.proposal_id)
             return [*notes, NOTE_INTERRUPTED]
         result = await self._classify(ctx, pending.readback_text, utterance)
+        _assent(state, pending.proposal_id, ctx, utterance, result.label)
         if result.label is not AssentLabel.AFFIRMATIVE:
             state.pending_proposal = None
+            _dropped(state, pending.proposal_id, "not_affirmative")
             return [*notes, NOTE_NOT_AFFIRMATIVE[result.label]]
         state.extra[ASSENT_KEY] = _record(pending, state, ctx, utterance, result)
         return [*notes, NOTE_AFFIRMATIVE]
@@ -708,7 +740,16 @@ class CommitmentHook:
         queue = self._unscored.setdefault(sid, [])
         # A re-sent turn keeps its id: score only its latest version.
         queue[:] = [u for u in queue if u.turn_id != ctx.user_turn_id]
-        queue.append(_Unscored(ctx.user_turn_id, transcript, ctx.db, ctx.settings))
+        queue.append(
+            _Unscored(
+                ctx.user_turn_id,
+                transcript,
+                ctx.db,
+                ctx.settings,
+                session_id=sid,
+                idea_id=ctx.state.current_idea_id,
+            )
+        )
         self._cancel_timer(sid)
         task = asyncio.create_task(self._score_when_idle(sid), name=f"ready-score:{sid}")
         self._timers[sid] = task
@@ -758,6 +799,16 @@ class CommitmentHook:
                         latency_ms=latency_ms,
                         is_active=True,
                     )
+                )
+            if item.session_id is not None:
+                emit(
+                    item.session_id,
+                    "ready_gate",
+                    {
+                        "idea_id": str(item.idea_id) if item.idea_id is not None else None,
+                        "verdict": ready,
+                        "reason": None,
+                    },
                 )
         except asyncio.CancelledError:
             raise
@@ -818,4 +869,30 @@ def _record(
         source=result.source,
         delivered=True,
         classified_at=datetime.now(UTC),
+    )
+
+
+# --- demo event feed (fire-and-forget; see relay.delegator.demo.events) -------------------
+
+
+def _dropped(state: SessionState, proposal_id: uuid.UUID, reason: str) -> None:
+    emit(state.session_id, "proposal_dropped", {"proposal_id": str(proposal_id), "reason": reason})
+
+
+def _assent(
+    state: SessionState,
+    proposal_id: uuid.UUID,
+    ctx: TurnContext,
+    utterance: str,
+    label: AssentLabel,
+) -> None:
+    emit(
+        state.session_id,
+        "assent",
+        {
+            "proposal_id": str(proposal_id),
+            "turn_id": str(ctx.user_turn_id) if ctx.user_turn_id is not None else None,
+            "label": label.value,
+            "utterance": utterance,
+        },
     )

@@ -114,6 +114,16 @@ class Settings(BaseSettings):
     elevenlabs_api_key: str | None = None
     elevenlabs_agent_id: str | None = None
 
+    # --- Demo website (TASK-42) ------------------------------------------------------------
+    # Passcode for the /demo API; empty (the default) disables every /demo route (404).
+    demo_passcode: str = ""
+    # Cap for one live demo voice session (only one runs at a time).
+    demo_max_voice_seconds: int = 600
+    # Built demo site served at / when this directory exists (and the demo is enabled).
+    demo_web_dist: str = "web/dist"
+    # How often the Delegator polls task rows for dispatched demo tasks.
+    demo_task_poll_s: float = 0.5
+
     # --- Executor --------------------------------------------------------------------------
     enabled_kinds: Annotated[list[str], NoDecode] = ["research"]
     artifacts_dir: str = "./artifacts"

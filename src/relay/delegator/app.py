@@ -7,9 +7,11 @@ import logging
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from relay.config import Settings, get_settings
@@ -17,6 +19,7 @@ from relay.delegator import wiring
 from relay.delegator.auth import bearer_auth, check_secret_is_safe
 from relay.delegator.commitment.reconcile import start_orphaned_commitments
 from relay.delegator.contracts import SessionStore, ToolRegistry, TurnHook
+from relay.delegator.demo import api as demo_api
 from relay.delegator.llm import ChatModel, build_chat_model
 from relay.delegator.service import ChatCompletionRequest, DelegatorService
 from relay.executor.common import warm_dbos_client
@@ -82,7 +85,11 @@ def create_app(
                     await start_orphaned_commitments(sessionmaker, settings)
             except Exception:
                 log.warning("startup reconciliation of commitments failed", exc_info=True)
+        if demo is not None:
+            demo.start()
         yield
+        if demo is not None:
+            await demo.stop()
         await service.drain()
         if engine is not None:
             await engine.dispose()
@@ -115,5 +122,12 @@ def create_app(
             dependencies=[Depends(bearer_auth(settings.delegator_shared_secret))],
             response_model=None,
         )
+
+    # Demo website API (TASK-42): absent (404) unless DEMO_PASSCODE is set.
+    demo = demo_api.install(app, settings, service, sessionmaker)
+    web_dist = Path(settings.demo_web_dist)
+    if demo is not None and settings.demo_web_dist and web_dist.is_dir():
+        # Mounted last so every API route above wins; same origin as /demo over ngrok.
+        app.mount("/", StaticFiles(directory=web_dist, html=True), name="web")
 
     return app
