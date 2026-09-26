@@ -4,12 +4,12 @@ title: Calibrate per-question temperatures on the turns corpus
 status: To Do
 assignee: []
 created_date: '2026-09-26 12:49'
+updated_date: '2026-09-26 13:14'
 labels:
   - phase-4
   - calibration
 milestone: m-3
-dependencies:
-  - TASK-18
+dependencies: []
 references:
   - spec-v1-draft.md#8-phasing
 priority: low
