@@ -88,9 +88,7 @@ def test_shell_environment_carries_no_worker_secrets(
 
 
 @pytest.mark.parametrize("escape", ["../outside.txt", "ABSOLUTE"])
-def test_file_tools_refuse_paths_outside_the_project_folder(
-    workspace: Path, escape: str
-) -> None:
+def test_file_tools_refuse_paths_outside_the_project_folder(workspace: Path, escape: str) -> None:
     outside = workspace.parent / "outside.txt"
     outside.write_text(SECRET)
     path = str(outside) if escape == "ABSOLUTE" else escape
@@ -148,8 +146,8 @@ def test_instructions_name_only_tools_the_local_route_has(workspace: Path) -> No
         capabilities=[executor_capability()],
     )
     agent.run_sync("go", deps=ExecutorDeps(workspace=workspace))
-    named = set(re.findall(r"\b[a-z]+(?:_[a-z]+)+\b", INSTRUCTIONS)) - set(
-        ResearchBrief.model_fields
-    )
+    # Backticked spans are shell commands (`sw_vers`), not tool names.
+    prose = re.sub(r"`[^`]*`", "", INSTRUCTIONS)
+    named = set(re.findall(r"\b[a-z]+(?:_[a-z]+)+\b", prose)) - set(ResearchBrief.model_fields)
     assert named, INSTRUCTIONS  # the check really looks at tool names
     assert named <= set(offered), (named - set(offered), offered)

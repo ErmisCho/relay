@@ -192,7 +192,7 @@ export interface ProposalData {
   idea_id: string | null;
   goal: string;
   scope_excludes: string;
-  artifact_kind: string; // "document" | "pull_request" | future kinds
+  artifact_kind: string; // promised: "document" | "pull_request" | future kinds
   /** The server-built read-back the agent must speak word for word. */
   readback: string;
 }
@@ -339,6 +339,7 @@ export interface ArtifactResponse {
   id: string;
   task_id: string;
   idea_id: string | null;
+  /** What was left: "document", "pull_request", or "branch" (a code result without GitHub). */
   kind: string;
   title: string;
   summary: string | null;

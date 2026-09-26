@@ -236,7 +236,10 @@ class ProposeCommitmentTool:
         "properties": {
             "goal": {
                 "type": "string",
-                "description": "Short imperative phrase, e.g. 'research proximity bike locks'.",
+                "description": (
+                    "The user's request as an imperative phrase, in their own words, e.g. "
+                    "'research proximity bike locks' or 'check my hardware system settings'."
+                ),
             },
             "scope_excludes": {
                 "type": "string",
@@ -245,7 +248,11 @@ class ProposeCommitmentTool:
             "artifact_kind": {
                 "type": "string",
                 "enum": [a.value for a in ArtifactKind],
-                "description": "Terminal artifact: 'document' for research and writing.",
+                "description": (
+                    "Terminal artifact: 'document' for looking into, checking or inspecting "
+                    "something and writing a report; 'pull_request' for making or changing "
+                    "code in a project."
+                ),
             },
         },
         "required": ["goal", "scope_excludes", "artifact_kind"],

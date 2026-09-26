@@ -88,6 +88,11 @@ IN_SCOPE_NEAR_MISSES = [
     "Buy-in from the team matters, write a brief on that.",
     "Send the finished brief to me when it's ready.",
     "Make the call on the database choice and put it in the doc.",
+    # Executor work (owner rule 2026-09-26): inspect the machine, run commands, change code.
+    "Can you check my hardware system settings?",
+    "Check my hardware system settings.",
+    "Run a command to see how much disk I have left.",
+    "Fix the failing test in my project.",
 ]
 
 
@@ -117,10 +122,16 @@ def test_out_of_scope_commitment_is_rejected(args: dict[str, Any]) -> None:
     assert REFUSAL_PHRASE in result.content
 
 
-def test_code_is_refused_until_enabled() -> None:
+def test_code_disabled_is_reframed_not_refused() -> None:
+    """A code proposal with code switched off is work the executor can do: the model is told to
+    offer a report or ask, never the "future version" refusal (owner rule, 2026-09-26)."""
     args = {"goal": "add a CLI", "artifact_kind": "pull_request"}
     refused = validate_commitment_args(args, make_settings(enabled_kinds=["research"]))
     assert not refused.allowed and refused.reason == "kind_not_enabled:code"
+    assert refused.refusal is not None
+    assert "Do not refuse the request" in refused.refusal
+    assert REFUSAL_PHRASE not in refused.refusal
+    assert "artifact_kind 'document'" in refused.refusal
     allowed = validate_commitment_args(args, make_settings(enabled_kinds=["research", "code"]))
     assert allowed.allowed
     assert (allowed.kind, allowed.artifact_kind) == (Kind.CODE, ArtifactKind.PULL_REQUEST)
@@ -130,9 +141,38 @@ def test_code_is_refused_until_enabled() -> None:
 def test_prompt_lists_only_enabled_verticals() -> None:
     off = render_scope_prompt(make_settings(enabled_kinds=["research"]))
     on = render_scope_prompt(make_settings(enabled_kinds=["research", "code"]))
-    assert "Not enabled yet" in off and "code and repos" in off
-    assert "Not enabled yet" not in on and "pull request on a branch" in on
+    assert "Switched off right now: making or changing code" in off
+    assert "pull request on a branch" not in off
+    assert "Switched off" not in on and "pull request on a branch" in on
     assert f'"{REFUSAL_PHRASE}"' in on
+
+
+@pytest.mark.parametrize("kinds", [["research"], ["research", "code"]])
+def test_prompt_hands_off_executor_work_instead_of_refusing_it(kinds: list[str]) -> None:
+    """The demo refused "check my hardware system settings" because the prompt limited handoffs
+    to "research and writing" (owner report, 2026-09-26). The rendered prompt must name the
+    executor's local-machine and command work, forbid refusing it, and keep the §10 list."""
+    prompt = " ".join(render_scope_prompt(make_settings(enabled_kinds=kinds)).split())
+    assert "research and writing" not in prompt
+    assert "inspect this computer" in prompt and "check my hardware system settings" in prompt
+    assert "Never answer that you can't do it" in prompt
+    hard = prompt[prompt.index("Hard refusals are only for") :]
+    for category in ("email", "calendars", "messaging", "browser", "purchases", "irreversible"):
+        assert category in hard, category
+    assert "future version" in hard  # the §10 refusal keeps its wording
+
+
+def test_demo_text_and_voice_agent_prompts_delegate_executor_work() -> None:
+    """Neither the demo text chat nor the ElevenLabs agent prompt may keep a refusal of
+    executor work; both must point at delegation."""
+    from relay.delegator.demo.api import TEXT_SYSTEM_PROMPT
+    from tests.conftest import REPO_ROOT
+
+    agent = json.loads((REPO_ROOT / "config" / "elevenlabs" / "agent.json").read_text())
+    voice = agent["conversation_config"]["agent"]["prompt"]["prompt"]
+    for prompt in (TEXT_SYSTEM_PROMPT, voice):
+        assert "never say you can't do" in prompt.lower()
+        assert "executor" in prompt and "research and writing" not in prompt
 
 
 # --- AC#4 (a): deterministic detection ---------------------------------------------------

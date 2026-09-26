@@ -44,11 +44,29 @@ class _ArtifactPhrases(Mapping[ArtifactKind, str]):
 
 #: How each terminal artifact is named in the read-back ("…and I'll leave it as <phrase>").
 ARTIFACT_PHRASE: Mapping[ArtifactKind, str] = _ArtifactPhrases()
-#: Short noun for the spoken dispatch confirmation ("…when the <noun> is ready").
-ARTIFACT_NOUN: dict[ArtifactKind, str] = {
+_NOUNS: dict[ArtifactKind, str] = {
     ArtifactKind.DOCUMENT: "document",
     ArtifactKind.PULL_REQUEST: "pull request",
 }
+
+
+class _ArtifactNouns(Mapping[ArtifactKind, str]):
+    """Like :class:`_ArtifactPhrases`: without a GitHub token a code result is a branch."""
+
+    def __getitem__(self, kind: ArtifactKind) -> str:
+        if kind is ArtifactKind.PULL_REQUEST and not get_settings().github_token:
+            return "branch"
+        return _NOUNS[kind]
+
+    def __iter__(self) -> Iterator[ArtifactKind]:
+        return iter(_NOUNS)
+
+    def __len__(self) -> int:
+        return len(_NOUNS)
+
+
+#: Short noun for the spoken dispatch confirmation ("…when the <noun> is ready").
+ARTIFACT_NOUN: Mapping[ArtifactKind, str] = _ArtifactNouns()
 
 #: Deliberately free of the words users answer with ("yes", "go ahead", "do it", "sounds good",
 #: "start it"), so an echo of the read-back (headset bleed transcribed as a user turn) can never

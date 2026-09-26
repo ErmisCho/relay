@@ -56,7 +56,10 @@ CREDENTIALS_TTL_S = 600
 ARTIFACT_WAIT_POLLS = 40
 TEXT_SYSTEM_PROMPT = (
     "You are relay, a voice-first thinking partner. This conversation is typed in the demo "
-    "website instead of spoken; reply exactly as you would out loud."
+    "website instead of spoken; reply exactly as you would out loud. Your job is to gather the "
+    "user's thoughts and, once a task is clear enough, hand it to the executor: never say you "
+    "can't do work the executor can do (looking into, checking or inspecting something, "
+    "including this computer, writing, or changing code); read the commitment back instead."
 )
 _MD_LINK = re.compile(r"\[([^\]\n]+)\]\((https?://[^)\s]+)\)")
 

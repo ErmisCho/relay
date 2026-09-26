@@ -6,9 +6,12 @@ server-generated read-back was fully heard and the NEXT user turn was classified
 
 from __future__ import annotations
 
+import copy
 import logging
+import re
 import uuid
 from collections.abc import AsyncIterator
+from typing import Any
 
 import pytest
 from sqlalchemy import select
@@ -17,11 +20,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from relay.delegator.commitment import CommitmentHook
 from relay.delegator.commitment.protocol import NOTE_AFFIRMATIVE, NOTE_INTERRUPTED
 from relay.delegator.contracts import SessionStore
+from relay.delegator.llm import ChatDelta
 from relay.delegator.scope import ArtifactKind
 from relay.store.db import create_engine, create_sessionmaker
 from relay.store.models import Idea, RouterDecision, Turn
 
-from ..conftest import make_settings, post
+from ..conftest import ScriptedChatModel, make_settings, post
 from .harness import FakeLabelModel, build_convo, dispatch, propose, text
 
 
@@ -391,3 +395,66 @@ async def test_ready_score_failure_is_logged_not_raised(
     assert any(
         "ready_score" in r.getMessage() or "answer_ready" in r.getMessage() for r in caplog.records
     )
+
+
+# --- executor work is delegated, not refused (owner rule, 2026-09-26) ---------------------
+
+
+class PromptFollowingModel(ScriptedChatModel):
+    """A stub that does what the rendered scope prompt says about a local-machine request.
+
+    If the prompt hands "inspect this computer" work to the executor and forbids refusing it,
+    it proposes the user's request verbatim; otherwise it refuses the way the demo model did.
+    After a tool result it speaks the read-back / confirmation the tool told it to say.
+    """
+
+    def __init__(self, goal: str) -> None:
+        super().__init__([])
+        self.goal = goal
+
+    async def stream(  # type: ignore[override]
+        self, messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None, **kw: Any
+    ) -> AsyncIterator[ChatDelta]:
+        self.calls.append({"messages": copy.deepcopy(messages), "tools": tools, **kw})
+        last = messages[-1]
+        system = " ".join(
+            " ".join(str(m["content"]).split()) for m in messages if m["role"] == "system"
+        )
+        if last["role"] == "tool":
+            said = re.search(r'"([^"]+)"', str(last["content"]))
+            script = text(said.group(1) if said else "Okay.")
+        elif str(last["content"]).lower().startswith("yes"):
+            script = dispatch()
+        elif "inspect this computer" in system and "Never answer that you can't do it" in system:
+            script = propose(self.goal, excludes="changing any settings")
+        else:
+            script = text(
+                "I can't do that yet, I can't check your hardware system settings, though that "
+                "might come in a future version."
+            )
+        for delta in script:
+            yield delta
+
+
+async def test_hardware_check_is_read_back_and_dispatched_only_on_yes(
+    db: async_sessionmaker[AsyncSession],
+) -> None:
+    """The demo answered "check my hardware system settings" with "I can't do that yet ...".
+    Through the real app, a model following the prompt must propose it (read-back), and only
+    the explicit yes dispatches it as a research task with the request as its goal."""
+    c = build_convo(db, enabled_kinds=["research"])
+    goal = f"check my {c.tag} hardware system settings"
+    c.chat = PromptFollowingModel(goal)
+    c.app.state.service.chat_model = c.chat
+    readback = c.readback(goal, "changing any settings")
+
+    reply = await c.turn(f"Can you check my {c.tag} hardware system settings?")
+    assert "can't do that yet" not in reply.lower() and "future version" not in reply
+    assert reply == readback
+    await c.assert_nothing_dispatched()
+
+    await c.turn("Yes, go ahead.")
+    (row,) = await c.commitments()
+    assert (row.goal, row.artifact_kind) == (goal, "document")
+    assert row.assent_utterance == "Yes, go ahead."
+    assert await c.task_count() == 1 and len(c.client.enqueued) == 1

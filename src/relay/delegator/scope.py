@@ -1,4 +1,10 @@
-"""The v1 scope boundary (SPEC §1 "unbounded action space", §3): two verticals, hard refusal.
+"""The v1 scope boundary (SPEC §1 "unbounded action space", §3, §10).
+
+Two executor verticals (persisted kinds ``research`` and ``code``) cover everything relay can
+hand off: looking into / checking / inspecting things and writing a report, and making or
+changing things in a project. Hard refusals are ONLY for the SPEC §10 actions in
+:class:`Category` (sending email or messages, calendar changes, purchases, browser/GUI control,
+irreversible actions); anything the executor can do is gathered, read back and dispatched.
 
 Three layers, defence in depth:
 
@@ -60,14 +66,24 @@ assert {a.value for a in ArtifactKind} == set(COMMITMENT_ARTIFACT_KINDS), "Artif
 
 _VERTICAL_TEXT: dict[Kind, str] = {
     Kind.RESEARCH: (
-        "research and writing: web research, synthesis, briefs, drafts, competitive analysis. "
-        "Terminal artifact: a Markdown document, never sent or published."
+        "look into, find out, check, inspect or gather anything, then write it up: web "
+        "research, reading documentation, read-only commands that inspect this computer "
+        "(hardware, operating system, memory, disk space, installed software, system settings), "
+        "data gathering, synthesis, briefs, drafts, comparisons. "
+        "Terminal artifact: a written Markdown report (artifact_kind 'document'), never sent or "
+        "published."
     ),
     Kind.CODE: (
-        "code and repos: write code, refactor, run tests. "
-        "Terminal artifact: a draft pull request on a branch (or, without GitHub, the branch "
-        "in the idea's project folder), never merged."
+        "make, change or build something in a project: write code, fix bugs, refactor, run "
+        "tests. Terminal artifact: a draft pull request on a branch (or, without GitHub, the "
+        "branch in the idea's project folder), never merged (artifact_kind 'pull_request')."
     ),
+}
+
+#: Short names of the verticals, for the "not switched on" line of the prompt.
+_VERTICAL_NAME: dict[Kind, str] = {
+    Kind.RESEARCH: "looking into things and writing reports",
+    Kind.CODE: "making or changing code in a project",
 }
 
 
@@ -91,9 +107,15 @@ def render_scope_prompt(settings: Settings) -> str:
     off = [k for k in Kind if k not in enabled]
     in_scope = "\n".join(f"- {_VERTICAL_TEXT[k]}" for k in on) or "- nothing is enabled yet"
     not_enabled = (
-        "Not enabled yet, so refuse these too:\n"
-        + "\n".join(f"- {_VERTICAL_TEXT[k].split(':', 1)[0]}" for k in off)
-        + "\n"
+        "Switched off right now: "
+        + ", ".join(_VERTICAL_NAME[k] for k in off)
+        + ". Do not refuse such a request and do not say it might come in a future version: "
+        + (
+            "offer the closest report instead (for example, look into the problem and write up "
+            "the proposed change as a document) or ask the user what they would like.\n"
+            if Kind.RESEARCH in enabled
+            else "keep thinking it through with the user.\n"
+        )
         if off
         else ""
     )
@@ -169,6 +191,26 @@ def refusal_instruction(detail: str | None = None) -> str:
     )
 
 
+def not_enabled_instruction(kind: Kind, enabled: frozenset[Kind]) -> str:
+    """Text for a proposal of a switched-off kind: reframe or clarify, never a hard refusal.
+
+    Switched-off work is work the executor can do, so it is not an out-of-scope action and
+    must not get the "might come in a future version" refusal (owner rule, 2026-09-26).
+    """
+    alternative = (
+        "Offer the closest report instead: propose again with artifact_kind 'document' and a "
+        "goal like 'look into <the request> and write up the proposed change', or ask the user "
+        "what they would like."
+        if Kind.RESEARCH in enabled and kind is not Kind.RESEARCH
+        else "Tell the user it is switched off right now and keep thinking it through together."
+    )
+    return (
+        f"REJECTED: {kind.value} work is switched off right now, so nothing was proposed. "
+        f"Do not refuse the request and do not say it might come in a future version. "
+        f"{alternative}"
+    )
+
+
 def validate_commitment_args(args: dict[str, Any], settings: Settings) -> ScopeDecision:
     """Server-side scope check for a commitment, independent of what the model believes.
 
@@ -192,7 +234,7 @@ def validate_commitment_args(args: dict[str, Any], settings: Settings) -> ScopeD
             kind=kind,
             artifact_kind=scope.artifact_kind,
             reason=reason,
-            refusal=refusal_instruction(f"{kind.value} work is not enabled yet"),
+            refusal=not_enabled_instruction(kind, enabled_kinds(settings)),
         )
     return ScopeDecision(allowed=True, kind=kind, artifact_kind=scope.artifact_kind)
 

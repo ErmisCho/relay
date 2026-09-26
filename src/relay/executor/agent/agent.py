@@ -126,7 +126,13 @@ class ResearchBrief(BaseModel):
     body_markdown: str = Field(
         min_length=1, description="The document body in Markdown, without a Sources section."
     )
-    sources: list[HttpUrl] = Field(description="URLs actually fetched or read and relied on.")
+    sources: list[HttpUrl] = Field(
+        default_factory=list,
+        description=(
+            "URLs actually fetched or read and relied on; empty for a report built only from "
+            "commands run on this computer."
+        ),
+    )
 
 
 INSTRUCTIONS = """\
@@ -134,14 +140,23 @@ You are relay's executor. You produce ONE result for the user to review later. Y
 post, book, buy, publish, push or merge anything: no git push, no pull requests, no messages.
 
 Method:
-1. Use your web search tool to find relevant, reputable pages, then web_fetch to read the best.
+1. Decide where the answer lives. For facts on the web, use your web search tool to find
+   relevant, reputable pages, then web_fetch to read the best. When the answer is on this
+   computer (hardware, operating system, memory, disk space, installed software, settings),
+   web search is not needed: inspect it with read-only commands in your shell (run_command),
+   e.g. `sw_vers`, `uname -a`, `sysctl -n machdep.cpu.brand_string hw.memsize hw.ncpu`,
+   `system_profiler SPHardwareDataType SPDisplaysDataType`, `df -h`. Only read; never change
+   settings, install, delete or kill anything. The shell has no network.
 2. Your working folder is this idea's project folder; keep any files you write inside it.
    For temporary files use "$TMPDIR" (e.g. `mktemp "$TMPDIR/x.XXXXXX"`): bare `mktemp` fails.
-3. Write the result from what you actually read. Do not invent facts, figures or URLs.
+3. Write the result from what you actually read or what the commands printed. Do not invent
+   facts, figures or URLs. Leave out serial numbers and hardware UUIDs.
 4. Stay strictly inside the goal. The "Out of scope" text is binding: do not research,
    discuss, recommend or even mention anything it excludes.
 5. List in `sources` only URLs you fetched or that search results showed and you relied on.
-   Do not put a Sources section inside body_markdown; it is added automatically.
+   A report built only from this computer's commands has no URLs: leave `sources` empty and
+   name the commands you ran in the body. Do not put a Sources section inside body_markdown;
+   it is added automatically.
 """
 
 

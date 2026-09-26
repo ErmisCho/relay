@@ -11,6 +11,7 @@ test also proves the workspace stays usable under a denied parent.
 from __future__ import annotations
 
 import http.server
+import subprocess
 import sys
 import threading
 import time
@@ -32,7 +33,9 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from relay.executor.agent import ExecutorDeps, executor_capability, sandbox
+from relay.executor.agent import ExecutorDeps, ResearchBrief, executor_capability, sandbox
+from relay.executor.agent.agent import INSTRUCTIONS
+from relay.executor.agent.runner import render_markdown
 from tests.conftest import REPO_ROOT
 
 pytestmark = pytest.mark.skipif(sys.platform != "darwin", reason="sandbox-exec is macOS-only")
@@ -206,3 +209,45 @@ def test_no_shell_without_the_sandbox(layout: Layout, monkeypatch: pytest.Monkey
     agent.run_sync("go", deps=ExecutorDeps(workspace=layout.workspace))
     assert "web_fetch" in offered  # the rest of the tool set is still there
     assert not SHELL_TOOLS & set(offered), offered
+
+
+def test_local_inspection_report_reaches_the_brief_without_sources(layout: Layout) -> None:
+    """ "Check my hardware" is a research task answered by read-only system commands. They must
+    run under the real sandbox profile (no network, home denied), their output must land in the
+    brief, and a brief with no URLs must validate and render (owner rule, 2026-09-26)."""
+    commands = ["sysctl -n hw.memsize", "sw_vers"]
+
+    def model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        turn = sum(isinstance(m, ModelResponse) for m in messages)
+        if turn < len(commands):
+            return ModelResponse(parts=[ToolCallPart("run_command", {"command": commands[turn]})])
+        outputs = [
+            str(p.content)
+            for m in messages
+            if isinstance(m, ModelRequest)
+            for p in m.parts
+            if isinstance(p, ToolReturnPart)
+        ]
+        brief = {
+            "title": "Hardware",
+            "summary": "What this Mac reports.",
+            "body_markdown": "\n\n".join(f"```\n{o}\n```" for o in outputs),
+            "sources": [],
+        }
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, brief)])
+
+    agent = Agent(
+        FunctionModel(model, profile=LOCAL_PROFILE),
+        deps_type=ExecutorDeps,
+        output_type=ResearchBrief,
+        instructions=INSTRUCTIONS,
+        capabilities=[executor_capability()],
+    )
+    brief = agent.run_sync("check my hardware", deps=ExecutorDeps(workspace=layout.workspace))
+    out = brief.output
+    memsize = subprocess.run(["sysctl", "-n", "hw.memsize"], capture_output=True, text=True)
+    assert memsize.stdout.strip() in out.body_markdown
+    assert "ProductVersion" in out.body_markdown
+    assert out.sources == []
+    markdown = render_markdown(out)
+    assert memsize.stdout.strip() in markdown and "## Sources" in markdown
