@@ -575,6 +575,10 @@ async def _record_commitment(
             readback_text=pending.readback_text,
             assent_utterance=record.utterance,
             assented_at=record.classified_at,
+            # The user turn upserted this session row; the yes turn is NULL only if persisting
+            # it failed (the dispatch still stands on the recorded utterance).
+            session_id=state.session_id,
+            assent_turn_id=record.user_turn_id,
         )
         session.add(commitment)
         await session.flush()

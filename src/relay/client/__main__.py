@@ -13,6 +13,7 @@ import signal
 from collections.abc import Coroutine
 from typing import Any
 
+from relay.client.capabilities import CapabilityPublishingStore
 from relay.client.listener import (
     PostgresSessionStore,
     SounddeviceAudioSource,
@@ -95,11 +96,15 @@ async def _run(args: argparse.Namespace) -> None:
     voice.on_user_transcript = lambda text: print(f"you:   {text}", flush=True)
     voice.on_agent_response = lambda text: print(f"agent: {text}", flush=True)
     engine = create_engine(settings.database_url)
+    # Probes local capability now and on every wake, publishing it to the Delegator in the
+    # background (TASK-35); it never delays or blocks a session.
+    store = CapabilityPublishingStore(PostgresSessionStore(create_sessionmaker(engine)), settings)
+    store.warm()
     listener = WakeListener(
         detector=detector,
         audio=SounddeviceAudioSource(args.device),
         voice=voice,
-        store=PostgresSessionStore(create_sessionmaker(engine)),
+        store=store,
         silence_timeout_s=args.silence_timeout,
         on_state=lambda s: print(
             f"[{s.value}]" + (f" say {detector.name!r}" if s is State.LISTENING else ""),
@@ -109,6 +114,7 @@ async def _run(args: argparse.Namespace) -> None:
     try:
         await run_until_signalled(listener.run())
     finally:
+        await store.aclose()
         await engine.dispose()
 
 

@@ -28,7 +28,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from relay.client.voice import VoiceSession
+from relay.client.voice import VOICE_END_REASONS, VoiceSession
 from relay.client.wake import FRAME_SAMPLES, SAMPLE_RATE, Frame, WakeWordDetector
 from relay.store.models import Session, Turn
 
@@ -63,8 +63,9 @@ class AudioSource(Protocol):
 class SessionStore(Protocol):
     async def create(self, session_id: uuid.UUID, wake_trigger: str) -> None: ...
 
-    async def end(self, session_id: uuid.UUID) -> None:
-        """Set `ended_at` once; later calls keep the first value."""
+    async def end(self, session_id: uuid.UUID, reason: str) -> None:
+        """Set `ended_at` and `end_reason` (one of `SESSION_END_REASONS`) once; later calls
+        keep the first values."""
         ...
 
     async def end_stale(self, idle_s: float) -> int:
@@ -90,11 +91,11 @@ class PostgresSessionStore:
         async with self._sessionmaker.begin() as db:
             await db.execute(stmt)
 
-    async def end(self, session_id: uuid.UUID) -> None:
+    async def end(self, session_id: uuid.UUID, reason: str) -> None:
         stmt = (
             update(Session)
             .where(Session.id == session_id, Session.ended_at.is_(None))
-            .values(ended_at=func.now())
+            .values(ended_at=func.now(), end_reason=reason)
         )
         async with self._sessionmaker.begin() as db:
             await db.execute(stmt)
@@ -113,7 +114,7 @@ class PostgresSessionStore:
                 Session.wake_trigger.is_not(None),
                 last_activity < func.now() - timedelta(seconds=idle_s),
             )
-            .values(ended_at=last_activity)
+            .values(ended_at=last_activity, end_reason="stale_reconciled")
             .execution_options(synchronize_session=False)
         )
         async with self._sessionmaker.begin() as db:
@@ -292,6 +293,7 @@ class WakeListener:
         # Shielded so a cancellation mid-connect leaves the task for `_shutdown` to await:
         # otherwise the start could complete after shutdown and leave a billing session open.
         self._start_task = asyncio.create_task(asyncio.to_thread(start))
+        reason = "start_failed"
         try:
             await asyncio.shield(self._start_task)
         except Exception:
@@ -300,11 +302,11 @@ class WakeListener:
             self._set_state(State.ACTIVE)
             connected = asyncio.create_task(self._measure_connect(session_id, trigger_ts, ended))
             try:
-                await self._watch(session_id, ended)
+                reason = await self._watch(session_id, ended)
             finally:
                 connected.cancel()
         self._set_state(State.CLOSING)
-        await self._finish(session_id)
+        await self._finish(session_id, reason)
 
     async def _measure_connect(
         self, session_id: uuid.UUID, trigger_ts: float, ended: asyncio.Event
@@ -324,22 +326,32 @@ class WakeListener:
             connected_ms,
         )
 
-    async def _watch(self, session_id: uuid.UUID, ended: asyncio.Event) -> None:
-        while not ended.is_set():
-            with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(ended.wait(), self._watchdog_interval_s)
+    async def _watch(self, session_id: uuid.UUID, ended: asyncio.Event) -> str:
+        """Wait for the session to end; returns the `sessions.end_reason` to record."""
+        while True:
+            if not ended.is_set():
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(ended.wait(), self._watchdog_interval_s)
             if ended.is_set():
-                log.info("session %s ended by the voice session", session_id)
-                return
+                reason = self._voice_end_reason()
+                log.info("session %s ended by the voice session (%s)", session_id, reason)
+                return reason
             idle = self._clock() - self._voice.last_activity_ts
             if idle > self.silence_timeout_s:
                 log.info("session %s: %.0f s of silence, auto-closing", session_id, idle)
                 await asyncio.to_thread(self._voice.stop)
-                return
+                return "silence_timeout"
 
-    async def _finish(self, session_id: uuid.UUID) -> None:
+    def _voice_end_reason(self) -> str:
+        # Optional on `VoiceSession` (not part of the protocol): an implementation that can
+        # tell how the provider ended the call exposes `end_reason`; anything else is recorded
+        # as the generic `voice_ended` rather than guessed.
+        reason = getattr(self._voice, "end_reason", None)
+        return reason if reason in VOICE_END_REASONS else "voice_ended"
+
+    async def _finish(self, session_id: uuid.UUID, reason: str) -> None:
         try:
-            await self._store.end(session_id)
+            await self._store.end(session_id, reason)
         except Exception:
             log.exception("could not set ended_at for session %s", session_id)
         self._current = None
@@ -364,7 +376,7 @@ class WakeListener:
         # the (slower) voice stop finishing.
         if self._current is not None:
             try:
-                await self._store.end(self._current)
+                await self._store.end(self._current, "client_exit")
             except Exception:
                 log.exception("could not set ended_at for session %s", self._current)
             self._current = None

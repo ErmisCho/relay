@@ -17,6 +17,12 @@ from typing import Protocol, runtime_checkable
 TranscriptCallback = Callable[[str], None]
 EndCallback = Callable[[], None]
 
+# Reasons an implementation may report through an optional `end_reason` attribute (read when
+# `on_end` fires; not part of the protocol, so implementations without it stay conformant).
+# Both are `sessions.end_reason` values: `server_closed` = the provider closed the call (the
+# agent's `end_call` or a server-side limit), `connection_lost` = the connection died.
+VOICE_END_REASONS = ("server_closed", "connection_lost")
+
 
 @runtime_checkable
 class VoiceSession(Protocol):

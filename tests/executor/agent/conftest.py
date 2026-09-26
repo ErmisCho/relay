@@ -20,7 +20,7 @@ import httpx
 import pytest
 from sqlalchemy import Engine, insert
 
-from relay.store.models import Commitment, Idea, Session
+from relay.store.models import Commitment, Idea, Session, Turn
 from tests.conftest import REPO_ROOT
 from tests.executor.conftest import Seed, Worker
 
@@ -104,9 +104,16 @@ def seed_research(sync_engine: Engine) -> Callable[[str, str], Seed]:
         with sync_engine.begin() as c:
             c.execute(insert(Idea).values(id=idea_id, title=goal, status="committed"))
             c.execute(insert(Session).values(id=session_id))
+            # The spoken yes the commitment was agreed on, as the protocol records it (0003).
+            turn_id = uuid.uuid4()
+            c.execute(
+                insert(Turn).values(id=turn_id, session_id=session_id, role="user", text="yes")
+            )
             c.execute(
                 insert(Commitment).values(
                     id=commitment_id,
+                    session_id=session_id,
+                    assent_turn_id=turn_id,
                     idea_id=idea_id,
                     goal=goal,
                     scope_excludes=excludes,

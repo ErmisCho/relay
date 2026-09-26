@@ -191,6 +191,23 @@ async def _update_resent_turn(
         )
 
 
+USAGE_KEYS = ("input_tokens", "output_tokens", "total_tokens")
+
+
+def _add_usage(totals: dict[str, int], usage: Any) -> None:
+    """Add a delta's reported token counts (a mapping with ``USAGE_KEYS``) to ``totals``.
+
+    ``ChatDelta`` carries no ``usage`` yet, so this reads it defensively: providers that
+    report nothing leave ``totals`` empty and the turn stores no usage (never a guessed 0).
+    """
+    if not isinstance(usage, Mapping):
+        return
+    for key in USAGE_KEYS:
+        value = usage.get(key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            totals[key] = totals.get(key, 0) + value
+
+
 def _tool_name(tool: dict[str, Any]) -> str | None:
     fn = tool.get("function")
     name = fn.get("name") if isinstance(fn, dict) else None
@@ -225,6 +242,8 @@ class _Turn:
     text_parts: list[str] = field(default_factory=list)
     external_calls: list[_Call] = field(default_factory=list)
     model_used: str | None = None
+    # Token counts summed over the turn's model calls, only for counts a provider reported.
+    usage: dict[str, int] = field(default_factory=dict)
     first_token_at: float | None = None
     # True once the model's answer finished streaming (vs. a barge-in / disconnect).
     completed: bool = False
@@ -509,6 +528,7 @@ class DelegatorService:
                 ):
                     if delta.model:
                         turn.model_used = delta.model
+                    _add_usage(turn.usage, getattr(delta, "usage", None))
                     if delta.content:
                         if turn.first_token_at is None:
                             turn.first_token_at = time.perf_counter()
@@ -693,6 +713,8 @@ class DelegatorService:
             meta["interrupted"] = True
         if turn.external_calls:
             meta["tool_calls"] = [c.name for c in turn.external_calls]
+        if turn.usage:
+            meta["usage"] = dict(turn.usage)
         turn_id = await self._safe(
             "persisting assistant turn",
             persistence.record_turn(

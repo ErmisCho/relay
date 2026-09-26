@@ -37,7 +37,7 @@ from relay.executor.agent.agent import (
 from relay.executor.routing import route_task
 from relay.executor.runners import ArtifactSpec, TaskContext, register_runner
 from relay.executor.workflows import db_step, engine
-from relay.store.models import Idea, RouterDecision
+from relay.store.models import Commitment, Idea, RouterDecision, Task
 
 WORKFLOW_NAME = "relay.research.run"
 REQUEST_LIMIT = 30
@@ -85,6 +85,11 @@ def record_route_step(task_id: str, route: dict[str, Any]) -> dict[str, Any]:
             pg_insert(RouterDecision)
             .values(
                 task_id=tid,
+                # The owner's spoken yes (TASK-46 AC1); NULL for commitments recorded before 0003.
+                turn_id=select(Commitment.assent_turn_id)
+                .join(Task, Task.commitment_id == Commitment.id)
+                .where(Task.id == tid)
+                .scalar_subquery(),
                 backend="llm",
                 difficulty=route["difficulty"],
                 latency_ms=route["latency_ms"],

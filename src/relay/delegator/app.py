@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from relay.config import Settings, get_settings
-from relay.delegator import wiring
+from relay.delegator import capabilities, wiring
 from relay.delegator.auth import bearer_auth, check_secret_is_safe
 from relay.delegator.commitment.reconcile import start_orphaned_commitments
 from relay.delegator.contracts import SessionStore, ToolRegistry, TurnHook
@@ -122,6 +122,9 @@ def create_app(
             dependencies=[Depends(bearer_auth(settings.delegator_shared_secret))],
             response_model=None,
         )
+
+    # Client capability profiles (TASK-35); a session without one routes cloud-only.
+    capabilities.install(app, settings)
 
     # Demo website API (TASK-42): absent (404) unless DEMO_PASSCODE is set.
     demo = demo_api.install(app, settings, service, sessionmaker)

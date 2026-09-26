@@ -91,7 +91,13 @@ async def test_easy_task_runs_on_easy_model_and_logs_decision(
     assert _models_called(worker, "route-easy") == {"stub-easy"}
     assert row["served_model"] == "stub-easy"
     (d,) = _decisions(sync_engine, task_id)
-    assert d["turn_id"] is None and d["backend"] == "llm" and d["is_active"] is True
+    # Linked to the owner's spoken yes, not left NULL (TASK-46 AC1).
+    with sync_engine.connect() as c:
+        yes_turn = c.execute(
+            text("SELECT assent_turn_id FROM commitments WHERE id = :c"), {"c": s.commitment_id}
+        ).scalar_one()
+    assert yes_turn is not None and d["turn_id"] == yes_turn
+    assert d["backend"] == "llm" and d["is_active"] is True
     assert (d["difficulty"], d["router_status"], d["latency_ms"]) == ("easy", "ok", 7)
     assert d["model_chosen"] == "ollama:easy-test:1b"
     # The router saw the commitment's goal and exclusions.

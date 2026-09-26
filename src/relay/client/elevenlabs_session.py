@@ -743,6 +743,10 @@ class ElevenLabsVoiceSession:
         self.on_user_transcript: TranscriptCallback | None = None
         self.on_agent_response: TranscriptCallback | None = None
         self.on_end: EndCallback | None = None
+        # Why the last session ended ("stopped", "start_failed", or a VOICE_END_REASONS value);
+        # set before `on_end` fires. `_ending` holds the reason of an end already under way.
+        self.end_reason: str | None = None
+        self._ending: str | None = None
         self._last_activity_ts = time.monotonic()
         self._lock = threading.Lock()
         self._token: object | None = None
@@ -788,6 +792,7 @@ class ElevenLabsVoiceSession:
             if self._token is not None:
                 raise RuntimeError("voice session already active")
             self._token = token
+            self._ending = None
         try:
             factory = self._conversation_factory or sdk_conversation_factory(self._settings)
             audio = self._audio_interface_factory()
@@ -809,7 +814,7 @@ class ElevenLabsVoiceSession:
                 config=config,
                 callback_user_transcript=lambda text: self._handle_user_transcript(token, text),
                 callback_agent_response=lambda text: self._handle_agent_response(token, text),
-                callback_end_session=lambda: self._finish(token),
+                callback_end_session=lambda: self._finish(token, "server_closed"),
             )
         except BaseException:
             with self._lock:
@@ -823,7 +828,7 @@ class ElevenLabsVoiceSession:
         try:
             conversation.start_session()
         except BaseException:
-            self._end_conversation(token, conversation)
+            self._end_conversation(token, conversation, "start_failed")
             raise
         # The SDK runs the socket (and audio_interface.start) on its own thread with no
         # exception handling: a connect/handshake failure or a missing input device kills that
@@ -840,7 +845,7 @@ class ElevenLabsVoiceSession:
             token, conversation = self._token, self._conversation
         if token is None or conversation is None:
             return
-        self._end_conversation(token, conversation)
+        self._end_conversation(token, conversation, "stopped")
         try:
             conversation.wait_for_session_end()
         except RuntimeError:
@@ -856,15 +861,21 @@ class ElevenLabsVoiceSession:
             still_current = self._token is token
         if still_current:
             logger.warning("voice session thread ended without end_session; closing it")
-            self._end_conversation(token, conversation)
+            self._end_conversation(token, conversation, "connection_lost")
 
-    def _end_conversation(self, token: object, conversation: ConversationLike) -> None:
+    def _end_conversation(
+        self, token: object, conversation: ConversationLike, reason: str
+    ) -> None:
         # The SDK's end_session stops the audio interface, stops its client-tools loop and
         # calls callback_end_session (-> _finish). _finish runs again in case it did not.
+        # The reason is claimed first: that callback would otherwise report "server_closed".
+        with self._lock:
+            if self._token is token and self._ending is None:
+                self._ending = reason
         try:
             conversation.end_session()
         finally:
-            self._finish(token)
+            self._finish(token, reason)
 
     def _touch(self) -> None:
         self._last_activity_ts = time.monotonic()
@@ -885,7 +896,7 @@ class ElevenLabsVoiceSession:
         if callback is not None:
             callback(text)
 
-    def _finish(self, token: object) -> None:
+    def _finish(self, token: object, reason: str) -> None:
         """Runs on every end path (stop, agent `end_call`, silence timeout, dropped socket,
         dead SDK thread). Only the first call for a given start releases the mic and fires
         `on_end`.
@@ -897,6 +908,8 @@ class ElevenLabsVoiceSession:
             self._token = None
             self._conversation = None
             self._audio = None
+            self.end_reason = self._ending or reason
+            self._ending = None
         try:
             if audio is not None:
                 audio.stop()

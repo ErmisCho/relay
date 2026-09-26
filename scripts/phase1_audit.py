@@ -11,9 +11,11 @@ Exit codes: 0 = TASK-31 AC#2 (no unintended dispatch) and AC#3 (session closed) 
 audited session, 1 = at least one violation, 2 = usage or database error.
 
 How rows are tied to a session: `turns` and turn-level `router_decisions` carry the session
-directly. `commitments` and `tasks` have no session column, so they belong to a session when
-they were created between `started_at` and `ended_at` plus a short grace window (a dispatch can
-land a few seconds after the call closes). Sessions that overlap in time share those rows.
+directly, and so do `commitments` (`session_id`, since migration 0003) and their `tasks`.
+Commitments written before 0003 have no `session_id`; only those fall back to the time window
+(created between `started_at` and `ended_at` plus a short grace window, since a dispatch can
+land a few seconds after the call closes), and sessions overlapping in time share them. Each
+commitment in the report says which way it was linked.
 """
 
 from __future__ import annotations
@@ -71,7 +73,7 @@ def audit_session(conn: Connection, session_id: uuid.UUID) -> dict[str, Any]:
     sess = (
         conn.execute(
             text(
-                "SELECT id, started_at, ended_at, wake_trigger, "
+                "SELECT id, started_at, ended_at, end_reason, wake_trigger, "
                 f"coalesce(ended_at, now()) + interval '{GRACE}' AS window_end "
                 "FROM sessions WHERE id = :sid"
             ),
@@ -117,24 +119,28 @@ def audit_session(conn: Connection, session_id: uuid.UUID) -> dict[str, Any]:
     commitments = (
         conn.execute(
             text(
-                "SELECT id, goal, readback_text, assent_utterance, assented_at FROM commitments "
-                "WHERE created_at >= :start AND created_at <= :end ORDER BY created_at"
+                "SELECT id, goal, readback_text, assent_utterance, assented_at, assent_turn_id, "
+                "session_id IS NOT NULL AS linked FROM commitments "
+                "WHERE session_id = :sid OR (session_id IS NULL "
+                "AND created_at >= :start AND created_at <= :end) ORDER BY created_at"
             ),
             window,
         )
         .mappings()
         .all()
     )
-    # A task counts if it OR its commitment falls in the window, so a stray task created
-    # during the call against an old commitment is audited too.
+    # A task belongs to its commitment's session. For an unlinked (pre-0003) commitment it
+    # counts if it OR the commitment falls in the window, so a stray task created during the
+    # call against an old commitment is audited too.
     tasks = (
         conn.execute(
             text(
                 "SELECT t.id, t.commitment_id, t.kind, t.status, t.error, t.served_model, "
                 "t.created_at, c.assent_utterance, c.readback_text, c.assented_at "
                 "FROM tasks t JOIN commitments c ON c.id = t.commitment_id "
-                "WHERE (t.created_at >= :start AND t.created_at <= :end) "
-                "OR (c.created_at >= :start AND c.created_at <= :end) ORDER BY t.created_at"
+                "WHERE c.session_id = :sid OR (c.session_id IS NULL AND ("
+                "(t.created_at >= :start AND t.created_at <= :end) "
+                "OR (c.created_at >= :start AND c.created_at <= :end))) ORDER BY t.created_at"
             ),
             window,
         )
@@ -205,6 +211,8 @@ def audit_session(conn: Connection, session_id: uuid.UUID) -> dict[str, Any]:
                 "readback_text": c["readback_text"],
                 "assent_utterance": c["assent_utterance"],
                 "assented_at": _iso(c["assented_at"]),
+                "assent_turn_id": str(c["assent_turn_id"]) if c["assent_turn_id"] else None,
+                "linked_by": "session_id" if c["linked"] else "time_window",
                 "task_count": n,
                 "exactly_one_task": n == 1,
             }
@@ -249,7 +257,7 @@ def audit_session(conn: Connection, session_id: uuid.UUID) -> dict[str, Any]:
             "ended_at": _iso(ended_at),
             "duration_s": duration_s,
             "auto_closed": ended_at is not None,
-            "end_reason": NOT_RECORDED,
+            "end_reason": sess["end_reason"] or NOT_RECORDED,
             "wake_trigger": sess["wake_trigger"],
         },
         "cost": {
@@ -307,7 +315,7 @@ def _print(report: dict[str, Any]) -> None:
         print(f"    TTFT {model}: {stats}")
     print(f"  commitments {len(report['commitments'])}")
     for cm in report["commitments"]:
-        print(f"    - {cm['goal']!r}  tasks={cm['task_count']}")
+        print(f"    - {cm['goal']!r}  tasks={cm['task_count']}  linked by {cm['linked_by']}")
         print(f"      read-back: {cm['readback_text']!r}")
         print(f"      assent:    {cm['assent_utterance']!r} at {cm['assented_at']}")
     print(f"  tasks {len(report['tasks'])}")
