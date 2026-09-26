@@ -1,9 +1,10 @@
 ---
 id: TASK-41
 title: Add a zero-shot LLM router backend
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-26 13:14'
+updated_date: '2026-09-26 19:29'
 labels:
   - phase-3
   - router
@@ -37,8 +38,14 @@ Laya is fast and free but uncalibrated and can't be improved without labels. A g
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 `LLMRouter` implements `Router` and uses the same question definitions as `LayaRouter`
+- [x] #1 `LLMRouter` implements `Router` and uses the same question definitions as `LayaRouter`
 - [ ] #2 Works with both a local Ollama model and a cloud small model, selected by configuration
-- [ ] #3 Timeouts, errors and malformed output return no decision and the turn goes to the frontier model
+- [x] #3 Timeouts, errors and malformed output return no decision and the turn goes to the frontier model
 - [ ] #4 Decisions, latency and per-call cost are logged to `router_decisions` with backend `llm` in shadow mode
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-26: LLMRouter shares questions.py with Laya; ollama:* → /api/chat JSON-schema, think=false, temp 0 (live gemma4 515–1200 ms warm); openai:/anthropic: → pydantic-ai structured output (TestModel only, no live cloud call). Timeout/HTTP 500/non-JSON/unknown label/missing question → None within budget. Open: AC2 live cloud model; AC4 tokens/cost only in logs (no router_decisions columns).
+<!-- SECTION:NOTES:END -->

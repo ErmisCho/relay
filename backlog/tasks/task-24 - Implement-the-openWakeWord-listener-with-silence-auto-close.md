@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-09-26 13:09'
-updated_date: '2026-09-26 18:03'
+updated_date: '2026-09-26 18:51'
 labels:
   - phase-1
   - client
@@ -58,4 +58,6 @@ WakeWordDetector interface + openWakeWord impl (pretrained hey_jarvis, threshold
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-09-26 W4: WakeListener (openwakeword 0.4.0 hey_jarvis via wakeword_model_paths, 2 s refractory, silence-flush reset), mic hand-off before VoiceSession.start, watchdog, ended_at written first in a shielded shutdown (double SIGINT under uv run), stale-session reconciler, trigger→connected latency. Live: wake word works (sessions.wake_trigger=hey_jarvis); trigger→start() 146 ms, trigger→connected 1002 ms (signed-URL fetch + websocket; follow-up: prefetch the signed URL while listening). OPEN: AC#1 <500 ms to connected (live 1.0 s), DoD 1 h false-trigger run (owner).
+
+2026-09-26 session 85558081 W1 (w1-c-3, unmerged until W3): SignedUrlCache prefetches the ElevenLabs signed URL via VoiceSession.prepare() when the listener enters LISTENING; start() takes it once if younger than SIGNED_URL_MAX_AGE_S=300 (refresh at 240 s; real TTL undocumented), else the SDK fetches on demand; prefetch failure logs once and never blocks listening. New log line "session <id>: signed URL prefetched|fetched on demand". Gates in worktree: tests/client 43 passed; full 415 passed/13 skipped; mypy 0; ruff 0. Known fragility: overrides private SDK Conversation._get_signed_url (elevenlabs 2.69) — W2 adds a contract test. OPEN AC#1: owner live run — expect "prefetched" and trigger -> connected < 500 ms, twice in a row.
 <!-- SECTION:NOTES:END -->

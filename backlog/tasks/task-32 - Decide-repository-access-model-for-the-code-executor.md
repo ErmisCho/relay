@@ -4,6 +4,7 @@ title: Decide repository access model for the code executor
 status: To Do
 assignee: []
 created_date: '2026-09-26 13:09'
+updated_date: '2026-09-26 18:34'
 labels:
   - phase-2
   - spike
@@ -35,3 +36,9 @@ Open question SPEC §11.1: does the code executor run in a cloud sandbox cloning
 - [ ] #1 Decision recorded as a Backlog decision covering secrets, durability and sandboxing
 - [ ] #2 Code executor task updated with the chosen model
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-26 owner input: a new idea asked by the user gets a new project folder, independent from relay/. The code executor works in that local folder rather than in a clone of the relay checkout. Still open for this spike: where the folder root lives, how a PR remote is created or chosen for a brand-new project, token scoping, and survival when the laptop is closed.
+<!-- SECTION:NOTES:END -->

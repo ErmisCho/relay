@@ -1,10 +1,10 @@
 ---
 id: TASK-37
 title: Route small_local turns to Ollama using the active router backend
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-09-26 13:09'
-updated_date: '2026-09-26 13:14'
+updated_date: '2026-09-26 19:49'
 labels:
   - phase-3
   - router
@@ -39,8 +39,14 @@ Once the shadow comparison has picked a backend (zero-shot Laya or the LLM route
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 With either backend active, turns routed `small_local` on a capable device are served by Ollama and logged with `model_used`
-- [ ] #2 Switching `ROUTER_ACTIVE` between `laya`, `llm` and `none` needs no code change
-- [ ] #3 Router failure, local failure or timeout falls back to the frontier model without the user hearing an error
-- [ ] #4 Assent classification is never served by the local model or the router
+- [x] #1 With either backend active, turns routed `small_local` on a capable device are served by Ollama and logged with `model_used`
+- [x] #2 Switching `ROUTER_ACTIVE` between `laya`, `llm` and `none` needs no code change
+- [x] #3 Router failure, local failure or timeout falls back to the frontier model without the user hearing an error
+- [x] #4 Assent classification is never served by the local model or the router
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-26 (commit after 751ca58): live with ROUTER_ACTIVE=laya: turn 1 Laya still loading → 151 ms timeout → frontier; turns 2-3 small_local served by local:gemma4:e4b (359/377 ms), Laya 127/140 ms. Tests test_active.py (11 cases). Gate 500 passed/15 skipped, mypy 0, ruff 0. Notes: ROUTER_ACTIVE switch needs a restart; frontier difficulty labels for TASK-36 AC5 still missing.
+<!-- SECTION:NOTES:END -->
