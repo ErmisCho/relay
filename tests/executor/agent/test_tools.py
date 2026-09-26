@@ -8,6 +8,7 @@ with a FunctionModel that makes one tool call, and inspects what the tool return
 from __future__ import annotations
 
 import http.server
+import re
 import threading
 from collections.abc import Iterator
 from pathlib import Path
@@ -26,7 +27,8 @@ from pydantic_ai.messages import (
 )
 from pydantic_ai.models.function import AgentInfo, FunctionModel
 
-from relay.executor.agent import ExecutorDeps, executor_capability
+from relay.executor.agent import ExecutorDeps, ResearchBrief, executor_capability
+from relay.executor.agent.agent import INSTRUCTIONS
 
 # No provider-native tools (like the local Ollama models), so web_fetch runs the harness's own
 # local fetch; FunctionModel otherwise claims native web fetch and the local tool is not offered.
@@ -79,7 +81,7 @@ def test_shell_environment_carries_no_worker_secrets(
 ) -> None:
     for name in SECRET_ENV:
         monkeypatch.setenv(name, SECRET)
-    out = _tool_result(workspace, "shell", {"command": "env"})
+    out = _tool_result(workspace, "run_command", {"command": "env"})
     assert "PATH=" in out, out  # the command really ran and printed its environment
     assert SECRET not in out
     assert not any(f"{name}=" in out for name in SECRET_ENV), out
@@ -128,3 +130,26 @@ def test_web_fetch_refuses_a_private_address(
     out = _tool_result(workspace, "web_fetch", {"url": url})
     assert SECRET not in out
     assert hits == []  # refused before connecting, not merely filtered afterwards
+
+
+def test_instructions_name_only_tools_the_local_route_has(workspace: Path) -> None:
+    """A tool the instructions name but the local route lacks makes local models call an
+    unknown tool, burn the run's retries and fail (it said `web_search`; locally the search
+    tool is `duckduckgo_search`)."""
+    offered: list[str] = []
+
+    def model(messages: list[ModelMessage], info: AgentInfo) -> ModelResponse:
+        offered.extend(t.name for t in info.function_tools)
+        return ModelResponse(parts=[TextPart("done")])
+
+    agent = Agent(
+        FunctionModel(model, profile=LOCAL_PROFILE),
+        deps_type=ExecutorDeps,
+        capabilities=[executor_capability()],
+    )
+    agent.run_sync("go", deps=ExecutorDeps(workspace=workspace))
+    named = set(re.findall(r"\b[a-z]+(?:_[a-z]+)+\b", INSTRUCTIONS)) - set(
+        ResearchBrief.model_fields
+    )
+    assert named, INSTRUCTIONS  # the check really looks at tool names
+    assert named <= set(offered), (named - set(offered), offered)

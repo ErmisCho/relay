@@ -40,7 +40,9 @@ from pydantic_ai_harness.shell import LLM_API_KEY_ENV_PATTERNS, Shell
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from relay.config import Settings, get_settings, parse_model_ref
+from relay.executor.agent.sandbox import sandboxed_shell
 from relay.executor.routing import LABELS, Difficulty
+from relay.executor.workspace import repo_root
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +65,8 @@ MODEL_TIMEOUT = httpx2.Timeout(120.0, connect=5.0)  # openai/anthropic SDKs are 
 MODEL_MAX_RETRIES = 0
 
 # The shell gets an explicit environment instead of inheriting the worker's, which carries
-# DATABASE_URL, DELEGATOR_SHARED_SECRET, ELEVENLABS_* and provider keys.
+# DATABASE_URL, DELEGATOR_SHARED_SECRET, ELEVENLABS_* and provider keys. The sandbox then
+# points HOME and TMPDIR into the workspace and prunes PATH (see sandbox.sandbox_env).
 SHELL_ENV_KEYS: tuple[str, ...] = ("PATH", "HOME", "LANG", "TMPDIR")
 # Stripped even from the explicit env above, in case SHELL_ENV_KEYS is ever widened.
 SHELL_DENIED_ENV_PATTERNS: tuple[str, ...] = (
@@ -77,8 +80,10 @@ SHELL_DENIED_ENV_PATTERNS: tuple[str, ...] = (
     "*_TOKEN",
 )
 # CLIs whose whole job is publishing (opening/merging PRs, posting issues) with stored tokens.
-# Not a boundary: the shell is otherwise unrestricted, and `git push` through a credential
-# helper still works. Revisit with an OS sandbox when the code runner (TASK-33) lands.
+# Not the boundary, only an early, readable refusal. The boundary is the macOS sandbox every
+# shell command runs in (sandbox.py): no network (so no `git push`, no curl to Postgres,
+# Ollama or the Delegator), writes only inside the workspace, no reads of the home directory
+# (credentials, keychains, git config) or the relay repository and its .env.
 SHELL_DENIED_COMMANDS: tuple[str, ...] = ("gh", "glab")
 
 # pydantic-ai prints a multi-line "observability" banner on first run; keep worker logs clean.
@@ -108,7 +113,7 @@ You are relay's executor. You produce ONE result for the user to review later. Y
 post, book, buy, publish, push or merge anything: no git push, no pull requests, no messages.
 
 Method:
-1. Use web_search to find relevant, reputable pages, then web_fetch to read the best ones.
+1. Use your web search tool to find relevant, reputable pages, then web_fetch to read the best.
 2. Your working folder is this idea's project folder; keep any files you write inside it.
 3. Write the result from what you actually read. Do not invent facts, figures or URLs.
 4. Stay strictly inside the goal. The "Out of scope" text is binding: do not research,
@@ -125,32 +130,42 @@ def build_prompt(goal: str, scope_excludes: str) -> str:
 
 
 def shell_env() -> dict[str, str]:
-    """The shell's whole environment: ``SHELL_ENV_KEYS`` copied from the worker, nothing else."""
+    """The shell's base environment: ``SHELL_ENV_KEYS`` copied from the worker, nothing else."""
     return {k: os.environ[k] for k in SHELL_ENV_KEYS if k in os.environ}
 
 
-def workspace_capabilities(workspace: Path) -> list[AbstractCapability[ExecutorDeps]]:
-    """Researcher + the Coder set, rooted in ``workspace``, with a scrubbed shell environment.
+def shell_denied_read_roots() -> list[Path]:
+    """Trees sandboxed commands may not read: the owner's home and the relay repository."""
+    return [Path.home(), repo_root()]
 
-    ``Coder`` has no shell ``env`` parameter, so its ``Shell`` is swapped for one with an
-    explicit env; the rest of its set (workspace-scoped file tools, context management) is
-    kept as is. No unrestricted filesystem: file tools stay in ``workspace``.
+
+def workspace_capabilities(workspace: Path) -> list[AbstractCapability[ExecutorDeps]]:
+    """Researcher + the Coder set, rooted in ``workspace``, with a sandboxed shell.
+
+    ``Coder``'s persistent ``Shell`` is swapped for run-scoped tools (``run_command``,
+    ``start_command``, ...; killed when the run ends) that run every command under macOS
+    ``sandbox-exec`` with an explicit env. Without the sandbox there is no shell at all (fail
+    closed). The rest of the set (workspace-scoped file tools, context management) is kept.
     """
     root = workspace.resolve()
-    shell = Shell[ExecutorDeps](
-        cwd=root,
-        denied_commands=SHELL_DENIED_COMMANDS,
-        allow_interactive=True,
+    shell = sandboxed_shell(
+        root,
         env=shell_env(),
+        denied_read_roots=shell_denied_read_roots(),
         denied_env_patterns=SHELL_DENIED_ENV_PATTERNS,
-        tools=["shell"],
+        denied_commands=SHELL_DENIED_COMMANDS,
     )
     # No RepoContext: it turns every model request into a streamed one (measured with harness
     # 0.36), which changes the durable step names and the model contract. A fresh project
     # folder has no CLAUDE.md/AGENTS.md to load anyway; revisit when the code runner (TASK-33)
     # works inside existing repositories.
     coder = Coder[ExecutorDeps](root, repo_context=False, sub_agents=False)
-    coding = [shell if isinstance(c, Shell) else c for c in coder.capabilities]
+    coding: list[AbstractCapability[ExecutorDeps]] = []
+    for c in coder.capabilities:
+        if not isinstance(c, Shell):
+            coding.append(c)
+        elif shell is not None:
+            coding.append(shell)
     # Sub-agents off: local models are slow and every delegation multiplies model calls, so
     # one agent does all the reading. Re-enable when a frontier model is the default executor
     # model.

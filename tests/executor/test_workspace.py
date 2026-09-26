@@ -58,3 +58,21 @@ def test_hostile_title_stays_directly_under_root(tmp_path: Path, title: str) -> 
     assert folder.name.endswith(f"-{idea_id.hex[:8]}")
     assert all(c.isascii() and (c.isalnum() or c == "-") for c in folder.name)
     assert len(folder.name) <= 60
+
+
+def test_symlinked_idea_folder_is_not_reused(tmp_path: Path) -> None:
+    """A planted `<slug>-<id8>` symlink would re-root the file tools and the shell sandbox
+    onto its target (e.g. the home directory)."""
+    root = tmp_path / "root"
+    root.mkdir()
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    idea = uuid.uuid4()
+    (root / f"planted-{idea.hex[:8]}").symlink_to(elsewhere, target_is_directory=True)
+    got = project_dir(idea, "My idea", _settings(root))
+    assert not got.is_symlink()
+    assert got.parent == root.resolve() and got != elsewhere.resolve()
+    (root / f"my-idea-{idea.hex[:8]}").rmdir()
+    (root / f"my-idea-{idea.hex[:8]}").symlink_to(elsewhere, target_is_directory=True)
+    with pytest.raises(ValueError, match="symlink"):
+        project_dir(idea, "My idea", _settings(root))

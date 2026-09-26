@@ -27,7 +27,7 @@ def _slugify(title: str) -> str:
     return slug or "idea"
 
 
-def _repo_root() -> pathlib.Path:
+def repo_root() -> pathlib.Path:
     """Directory holding relay's ``pyproject.toml``; the package dir itself if none is found."""
     package_dir = pathlib.Path(relay.__file__).resolve().parent
     for candidate in (package_dir, *package_dir.parents):
@@ -42,7 +42,7 @@ def _checked_root(settings: Settings) -> pathlib.Path:
         raise ValueError(f"executor_projects_root must not be the filesystem root: {root}")
     if root == pathlib.Path.home().resolve():
         raise ValueError(f"executor_projects_root must not be the home directory itself: {root}")
-    repo = _repo_root()
+    repo = repo_root()
     if root == repo or root.is_relative_to(repo):
         raise ValueError(
             f"executor_projects_root {root} is inside the relay repository {repo}; "
@@ -70,9 +70,17 @@ def project_dir(idea_id: uuid.UUID, title: str, settings: Settings) -> pathlib.P
     suffix = f"-{idea_id.hex[:_ID_LEN]}"
     if root.is_dir():
         # Linear scan of the root — fine for hundreds of ideas; index by id if that grows large.
-        existing = sorted(p for p in root.iterdir() if p.is_dir() and p.name.endswith(suffix))
+        # Symlinks are skipped: a planted `x-<id8>` link would re-root the file tools and the
+        # shell sandbox (whose write rule is the workspace) onto its target.
+        existing = sorted(
+            p
+            for p in root.iterdir()
+            if p.name.endswith(suffix) and not p.is_symlink() and p.is_dir()
+        )
         if existing:
             return existing[0].resolve()
     target = root / f"{_slugify(title)}{suffix}"
+    if target.is_symlink():
+        raise ValueError(f"project folder {target} is a symlink; refusing to use it")
     target.mkdir(parents=True, exist_ok=True)
     return target
