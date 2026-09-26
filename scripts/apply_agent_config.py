@@ -10,7 +10,9 @@
 - `DELEGATOR_SECRET_ID`: the id of an ElevenLabs workspace secret holding
   `DELEGATOR_SHARED_SECRET`. The secret value never appears in the JSON; `--apply` creates or
   updates the secret and references it by id.
-- `SILENCE_TIMEOUT_S`: server-side `turn.silence_end_call_timeout`.
+- `SILENCE_TIMEOUT_S`: server-side `turn.silence_end_call_timeout`, set to the client watchdog's
+  `silence_timeout_s` plus `SERVER_SILENCE_MARGIN_S`, so the client always closes first and the
+  server timeout is only a backstop.
 
 `--apply` creates the agent when `ELEVENLABS_AGENT_ID` is unset, else updates that agent, and
 prints the agent id. It spends no agent minutes but does change the ElevenLabs account.
@@ -41,11 +43,14 @@ def load_template(path: Path = CONFIG_PATH) -> dict[str, Any]:
     return data
 
 
+SERVER_SILENCE_MARGIN_S = 15
+
+
 def placeholder_values(settings: Settings, secret_id: str) -> dict[str, object]:
     return {
         "DELEGATOR_PUBLIC_URL": settings.delegator_public_url.rstrip("/"),
         "DELEGATOR_SECRET_ID": secret_id,
-        "SILENCE_TIMEOUT_S": settings.silence_timeout_s,
+        "SILENCE_TIMEOUT_S": settings.silence_timeout_s + SERVER_SILENCE_MARGIN_S,
     }
 
 

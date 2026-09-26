@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-09-26 13:09'
-updated_date: '2026-09-26 16:19'
+updated_date: '2026-09-26 17:28'
 labels:
   - phase-1
   - delegator
@@ -54,6 +54,8 @@ scope.py (verticals, ENABLED_KINDS gate, kind/artifact_kind enums, validate_comm
 2026-09-26 owner decision (decision-4): 'draft an email/message for me to send' is refused outright, not turned into a writing document; the spoken refusal must add that it might be supported in a future version. Applied in prompts/system.md example and scope.refusal_instruction.
 
 2026-09-26 W3: three layers — system prompt in the cached prefix (ScopeHook.system_prefix), server-side validate_commitment_args/scope_guard (validation-only), precision-first detector adding a refusal note + turns.metadata.refused. Review fix: detector false positives 11/37 → 0/37 and guard no longer vetoes on the flag. Evidence: 73 scope tests; live gemma4 refused 15/15 out-of-scope asks with 0 tool calls. Known recall gaps (prompt covers them): 'Email Sarah the summary', 'Forward this to my boss', 'Publish the doc on our blog', 'Send the brief to the client'.
+
+2026-09-26 live finding (owner call, session 2709997b): gemma4:e4b refused in-scope conversation ('how to run local LLMs on my Mac' → 'I can't give technical advice…') and a research-doc request. The detector did NOT flag (no turns.metadata.refused); the model over-applied the refusal-heavy prompt. Fix (coordinator): prompts/system.md now leads with 'conversation is ALWAYS allowed; refusing is only about taking actions', states research/document requests are in scope via propose_commitment, and adds a spoken style rule (1–3 plain sentences, no markdown). Evidence: new opt-in live test tests/delegator/test_scope_overrefusal.py 12/12 in-scope answered (incl. the owner's exact phrasings); existing live out-of-scope test still 15/15 refused, 0 tool calls.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

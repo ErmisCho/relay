@@ -8,6 +8,7 @@ import threading
 import time
 from typing import Any
 
+import numpy as np
 import pytest
 from elevenlabs.client import ElevenLabs
 from elevenlabs.conversational_ai.conversation import Conversation
@@ -133,22 +134,135 @@ def test_agent_end_call_releases_microphone_and_fires_on_end(harness: Harness) -
 
 
 def test_interrupt_flushes_queued_playback() -> None:
-    outputs = StreamRecorder()
-    audio = SounddeviceAudioInterface(
-        input_stream_factory=StreamRecorder(), output_stream_factory=outputs
-    )
-    audio.start(lambda _chunk: None)
-    audio.output(b"\x01\x02" * 4000)
-    assert audio.pending_output_bytes == 8000
+    rig = AudioRig("on")
+    rig.audio.output(b"\x01\x02" * 4000)
+    assert rig.pull() != bytes(OUT_BLOCK_BYTES)  # playing
+    assert rig.audio.pending_output_bytes == 8000 - OUT_BLOCK_BYTES
 
-    audio.interrupt()
+    rig.audio.interrupt()
 
-    assert audio.pending_output_bytes == 0
+    assert rig.audio.pending_output_bytes == 0
     # The next output block the device pulls is silence, not the rest of the sentence.
-    frames = outputs.streams[0].kwargs["blocksize"]
-    block = bytearray(b"\xff" * frames * 2)
-    outputs.streams[0].kwargs["callback"](block, frames, None, None)
-    assert block == bytearray(frames * 2)
+    assert rig.pull() == bytes(OUT_BLOCK_BYTES)
+    assert rig.audio.stats["interrupts"] == 1
+
+
+OUT_BLOCK_BYTES = 1_000 * 2
+MIC_CHUNK_BYTES = 4_000 * 2
+
+
+def _pcm(level: int, n_bytes: int) -> bytes:
+    return np.full(n_bytes // 2, level, dtype=np.int16).tobytes()
+
+
+class FakeClock:
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+class AudioRig:
+    """A started SounddeviceAudioInterface on fake streams and a fake clock."""
+
+    def __init__(self, echo_gate: Any, voice_gate: Any = "off") -> None:
+        self.clock = FakeClock()
+        self.outputs = StreamRecorder()
+        self.sent: list[bytes] = []
+        self.audio = SounddeviceAudioInterface(
+            input_stream_factory=StreamRecorder(),
+            output_stream_factory=self.outputs,
+            echo_gate=echo_gate,
+            echo_margin_db=10.0,
+            voice_gate=voice_gate,
+            voice_margin_db=12.0,
+            voice_min_dbfs=-40.0,
+            clock=self.clock,
+        )
+        self.audio.start(self.sent.append)
+
+    def pull(self) -> bytes:
+        """One output block, as PortAudio would request it."""
+        frames = OUT_BLOCK_BYTES // 2
+        block = bytearray(b"\xff" * OUT_BLOCK_BYTES)
+        self.outputs.streams[0].kwargs["callback"](block, frames, None, None)
+        return bytes(block)
+
+    def mic(self, chunk: bytes) -> bytes:
+        """Feed one mic chunk and return what the SDK received for it."""
+        before = len(self.sent)
+        self.audio._on_input(chunk, len(chunk) // 2, None, None)
+        deadline = time.monotonic() + 2
+        while len(self.sent) == before and time.monotonic() < deadline:
+            time.sleep(0.005)
+        assert len(self.sent) == before + 1, "mic chunk was dropped"
+        return self.sent[-1]
+
+    def run(self, signal: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        """Feed `signal` as 250 ms mic chunks; return what the SDK received, concatenated."""
+        out = [
+            np.frombuffer(self.mic(signal[i : i + 4_000].tobytes()), dtype=np.int16)
+            for i in range(0, signal.size, 4_000)
+        ]
+        return np.concatenate(out)
+
+
+def test_strict_gate_sends_silence_during_playback_and_hangover_without_dropping() -> None:
+    rig = AudioRig("on")
+    voice = _pcm(20_000, MIC_CHUNK_BYTES)
+    silence = bytes(MIC_CHUNK_BYTES)
+
+    rig.audio.output(_pcm(1_000, 2 * OUT_BLOCK_BYTES))
+    assert rig.mic(voice) == silence  # queued agent audio
+    rig.pull()
+    rig.pull()  # drained at t=0
+    rig.clock.now = 0.3
+    assert rig.mic(voice) == silence  # hangover: Bluetooth echo still arriving
+    rig.clock.now = 0.4
+    assert rig.mic(voice) == voice
+
+    assert rig.audio.stats["frames_gated"] == 2
+    assert rig.audio.stats["frames_in"] == len(rig.sent) == 3
+
+
+def test_gate_off_streams_the_mic_during_playback() -> None:
+    rig = AudioRig("off")
+    rig.audio.output(_pcm(1_000, 2 * OUT_BLOCK_BYTES))
+    voice = _pcm(300, MIC_CHUNK_BYTES)
+    assert rig.mic(voice) == voice
+
+
+def test_adaptive_gate_passes_loud_barge_in_and_gates_quiet_echo() -> None:
+    rig = AudioRig("adaptive")
+    rig.audio.output(_pcm(1_000, 4 * OUT_BLOCK_BYTES))
+    rig.pull()  # agent playing at RMS 1000; +10 dB threshold is ~3162
+
+    echo = _pcm(500, MIC_CHUNK_BYTES)
+    shout = _pcm(20_000, MIC_CHUNK_BYTES)
+    assert rig.mic(echo) == bytes(MIC_CHUNK_BYTES)
+    assert rig.mic(shout) == shout
+    assert rig.audio.stats["frames_gated"] == 1
+    assert rig.audio.stats["frames_in"] == len(rig.sent) == 2
+
+
+def test_prebuffer_holds_playback_until_threshold_or_max_wait() -> None:
+    rig = AudioRig("on")
+    first = _pcm(1_000, OUT_BLOCK_BYTES)  # 62.5 ms < 120 ms pre-buffer
+    rig.audio.output(first)
+    assert rig.pull() == bytes(OUT_BLOCK_BYTES)
+    assert rig.audio.pending_output_bytes == OUT_BLOCK_BYTES
+
+    rig.audio.output(_pcm(1_000, OUT_BLOCK_BYTES))  # 125 ms buffered: start
+    assert rig.pull() == first
+
+    rig.pull()  # drain; next chunk arrives after silence and waits again
+    rig.clock.now = 5.0
+    tail = _pcm(2_000, 400)
+    rig.audio.output(tail)
+    assert rig.pull() == bytes(OUT_BLOCK_BYTES)
+    rig.clock.now = 5.26  # older than the 250 ms max wait: play what we have
+    assert rig.pull() == tail + bytes(OUT_BLOCK_BYTES - len(tail))
 
 
 def _closed_local_port() -> int:
@@ -242,3 +356,123 @@ def test_stop_on_an_audio_callback_thread_is_handed_to_a_helper_and_closes_once(
     assert stream.closed.wait(2)
     assert stream.stop_calls and all(t is not portaudio for t in stream.stop_calls)
     assert stream.close_calls == 1
+
+
+# --- near-field voice gate -----------------------------------------------------------------
+
+SR = 16_000
+
+
+def _scaled(x: np.ndarray[Any, Any], dbfs: float) -> np.ndarray[Any, Any]:
+    target = 32768.0 * 10 ** (dbfs / 20)
+    x = x * (target / np.sqrt(np.mean(x * x)))
+    return np.clip(x, -32768, 32767).astype(np.int16)
+
+
+def noise(dbfs: float, seconds: float, seed: int = 1) -> np.ndarray[Any, Any]:
+    return _scaled(np.random.default_rng(seed).standard_normal(int(seconds * SR)), dbfs)
+
+
+def speech(dbfs: float, seconds: float, seed: int = 2) -> np.ndarray[Any, Any]:
+    """Speech-like: noise with a 4 Hz syllable envelope, sustained at `dbfs` RMS."""
+    n = int(seconds * SR)
+    envelope = 0.6 + 0.4 * np.sin(2 * np.pi * 4 * np.arange(n) / SR)
+    return _scaled(np.random.default_rng(seed).standard_normal(n) * envelope, dbfs)
+
+
+def test_near_voice_passes_background_is_zeroed_and_no_frames_dropped() -> None:
+    rig = AudioRig("off", voice_gate="on")
+    room, voice = noise(-60, 2.0), speech(-20, 1.0)
+
+    out = rig.run(np.concatenate([room, voice]))
+
+    assert not out[: room.size].any()
+    assert np.array_equal(out[room.size :], voice)
+    assert rig.audio.stats["frames_in"] == len(rig.sent) == 12
+    assert all(len(chunk) == 8_000 for chunk in rig.sent)
+
+
+def test_distant_sustained_speech_is_gated() -> None:
+    rig = AudioRig("off", voice_gate="on")
+
+    out = rig.run(np.concatenate([noise(-60, 1.0), speech(-45, 3.0)]))
+
+    assert not out.any()
+    assert rig.audio.stats["frames_voice_gated"] == 16
+    assert rig.audio.snapshot_stats()["voice_open_ratio"] == 0.0
+
+
+def test_floor_adapts_to_a_louder_room_and_near_voice_still_passes() -> None:
+    rig = AudioRig("off", voice_gate="on")
+    loud_room, voice = noise(-45, 5.0, seed=3), speech(-20, 1.0)
+
+    out = rig.run(np.concatenate([noise(-60, 2.0), loud_room, voice]))
+
+    assert abs(rig.audio.snapshot_stats()["noise_floor_dbfs"] - (-45)) < 2
+    assert not out[: -voice.size].any()
+    assert np.array_equal(out[-voice.size :], voice)
+
+
+def test_hold_keeps_a_200ms_pause_open_then_closes() -> None:
+    rig = AudioRig("off", voice_gate="on")
+    lead, pause, tail = noise(-60, 1.0), noise(-60, 0.2, seed=4), noise(-60, 1.0, seed=5)
+    word1, word2 = speech(-20, 0.5), speech(-20, 0.5, seed=6)
+
+    out = rig.run(np.concatenate([lead, word1, pause, word2, tail]))
+
+    p0 = lead.size + word1.size
+    assert np.array_equal(out[p0 : p0 + pause.size], pause)  # pause inside the utterance
+    t0 = p0 + pause.size + word2.size
+    assert np.array_equal(out[t0 : t0 + int(0.3 * SR)], tail[: int(0.3 * SR)])  # word ending
+    assert not out[t0 + int(0.35 * SR) :].any()  # then the gate closes
+
+
+def test_preroll_restores_the_onset_within_the_chunk() -> None:
+    rig = AudioRig("off", voice_gate="on")
+    rig.run(noise(-60, 1.0))
+    before, onset = noise(-60, 2_000 / SR, seed=7), speech(-20, 2_000 / SR)
+
+    out = rig.run(np.concatenate([before, onset]))
+
+    assert not out[:800].any()
+    assert np.array_equal(out[800:2_000], before[800:])  # 75 ms pre-roll
+    assert np.array_equal(out[2_000:], onset)
+
+
+def test_echo_and_voice_gates_combine() -> None:
+    rig = AudioRig("adaptive", voice_gate="on")
+    rig.audio.output(_pcm(1_000, 8 * OUT_BLOCK_BYTES))
+    rig.pull()  # agent playing at ~-30 dBFS
+
+    echo = speech(-35, 0.25)  # loud enough for the voice gate, but it is the agent's echo
+    barge_in = speech(-6, 0.25)
+    assert not rig.run(echo).any()
+    assert np.array_equal(rig.run(barge_in), barge_in)
+
+    rig.audio.interrupt()
+    rig.clock.now = 1.0  # playback and hangover over
+    rig.run(noise(-60, 0.5, seed=8))  # the barge-in's 300 ms hold runs out
+    background, voice = noise(-60, 0.5), speech(-20, 0.5)
+    assert not rig.run(background).any()
+    assert np.array_equal(rig.run(voice), voice)
+    assert rig.audio.stats["frames_gated"] == 1
+
+
+def test_relay_voice_gate_off_streams_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RELAY_VOICE_GATE", "off")
+    sent: list[bytes] = []
+    audio = SounddeviceAudioInterface(
+        input_stream_factory=StreamRecorder(),
+        output_stream_factory=StreamRecorder(),
+        echo_gate="off",
+        echo_margin_db=10.0,
+    )
+    assert audio.voice_gate is None
+    audio.start(sent.append)
+    distant = speech(-45, 0.25).tobytes()
+    audio._on_input(distant, 4_000, None, None)
+    deadline = time.monotonic() + 2
+    while not sent and time.monotonic() < deadline:
+        time.sleep(0.005)
+    audio.stop()
+    assert sent == [distant]

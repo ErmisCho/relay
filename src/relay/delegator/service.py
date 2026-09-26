@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 import time
 import uuid
 from collections import OrderedDict
@@ -20,6 +21,8 @@ from datetime import UTC, datetime
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ConfigDict
+from sqlalchemy import literal, update
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from relay.config import Settings
@@ -40,6 +43,7 @@ from relay.delegator.contracts import (
 )
 from relay.delegator.llm.base import ChatModel
 from relay.delegator.sse import SSE_DONE, sse_frame
+from relay.store.models import Turn
 
 log = logging.getLogger(__name__)
 
@@ -49,6 +53,8 @@ MAX_TOOL_ROUNDS = 5
 APOLOGY_TEXT = (
     "Sorry, I'm having trouble thinking right now. Could you give me a moment and say that again?"
 )
+#: Spoken when the model returns nothing at all, even after retries.
+EMPTY_REPLY_TEXT = "Sorry, could you say that again?"
 SESSION_HEADER = "x-relay-session-id"
 _WARNED_SESSIONS_MAX = 1024
 # How long a new request waits for the same session's previous turn to finish
@@ -130,6 +136,58 @@ def resolve_session_id(
     return uuid.uuid4(), "fresh"
 
 
+# ``SessionState.extra`` keys the service maintains for hooks and tools (provisional; the
+# coordinator will formalise them in ``contracts``):
+#: True when the current request re-sends the previous user turn (same history before the last
+#: user message; same or extended utterance). The turn keeps its ``user_turn_index`` and row.
+RESENT_KEY = "turn.resent"
+#: On a re-sent turn: the utterance of the request it replaces.
+PREV_TEXT_KEY = "turn.prev_text"
+#: ``{user_turn_index: bool}``, set just before ``after_response``: whether that user turn's
+#: latest request finished streaming (False on a barge-in / client disconnect). Keyed per turn so
+#: overlapping finalisations of different turns cannot overwrite each other.
+COMPLETED_KEY = "turn.completed"
+#: Internal: fingerprint of the session's latest user request, for re-send detection.
+LAST_USER_REQUEST_KEY = "turn.last_user_request"
+
+
+@dataclass(frozen=True)
+class _UserRequest:
+    history_digest: str
+    text: str
+    turn_id: uuid.UUID | None
+
+
+def _history_digest(messages: list[dict[str, Any]]) -> str:
+    key = json.dumps([[m.get("role"), content_text(m.get("content"))] for m in messages])
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
+
+def _words(text: str) -> list[str]:
+    return re.sub(r"[^0-9a-z' ]+", " ", text.lower().replace("’", "'")).replace("'", "").split()
+
+
+def _is_resend(previous: _UserRequest, digest: str, text: str) -> bool:
+    """Same history before the user message, and the new utterance equals or extends the old."""
+    if previous.history_digest != digest:
+        return False
+    old, new = _words(previous.text), _words(text)
+    return new[: len(old)] == old
+
+
+async def _update_resent_turn(
+    db: async_sessionmaker[AsyncSession], turn_id: uuid.UUID, text: str, previous: str
+) -> None:
+    """Replace a re-sent user turn's text, keeping the earlier utterance in its metadata."""
+    payload = {"resent": True, "resent_from": previous}
+    async with db() as session, session.begin():
+        await session.execute(
+            update(Turn)
+            .where(Turn.id == turn_id)
+            .values(text=text, meta=Turn.meta.op("||")(literal(payload, type_=JSONB)))
+        )
+
+
 def _tool_name(tool: dict[str, Any]) -> str | None:
     fn = tool.get("function")
     name = fn.get("name") if isinstance(fn, dict) else None
@@ -167,6 +225,8 @@ class _Turn:
     first_token_at: float | None = None
     # True once the model's answer finished streaming (vs. a barge-in / disconnect).
     completed: bool = False
+    # ``SessionState.user_turn_index`` of the user turn this request answers.
+    user_turn_index: int = 0
 
 
 def _last_user_index(messages: list[dict[str, Any]]) -> int | None:
@@ -332,18 +392,44 @@ class DelegatorService:
 
         user_turn_id: uuid.UUID | None = None
         if messages and messages[-1].get("role") == "user":
-            state.user_turn_index += 1
-            user_turn_id = await self._safe(
-                "persisting user turn",
-                persistence.record_turn(
-                    self.db,
-                    session_id=session_id,
-                    role="user",
-                    text=user_text,
-                    idea_id=state.current_idea_id,
-                    ts=datetime.now(UTC),
-                ),
-            )
+            digest = _history_digest(messages[:-1])
+            previous: _UserRequest | None = state.extra.get(LAST_USER_REQUEST_KEY)
+            resent = previous is not None and _is_resend(previous, digest, user_text)
+            state.extra[RESENT_KEY] = resent
+            if resent:
+                # ElevenLabs re-sent the same user turn (false barge-in): same history, same or
+                # extended utterance. It is still the same user turn: same index, same row.
+                assert previous is not None
+                state.extra[PREV_TEXT_KEY] = previous.text
+                user_turn_id = previous.turn_id
+                log.info(
+                    "delegator: re-sent user turn %d in session %s (%r -> %r)",
+                    state.user_turn_index,
+                    session_id,
+                    previous.text,
+                    user_text,
+                )
+                if user_turn_id is not None and user_text != previous.text:
+                    await self._safe(
+                        "updating re-sent user turn",
+                        _update_resent_turn(self.db, user_turn_id, user_text, previous.text),
+                    )
+            else:
+                state.extra.pop(PREV_TEXT_KEY, None)
+                state.user_turn_index += 1
+            if user_turn_id is None:
+                user_turn_id = await self._safe(
+                    "persisting user turn",
+                    persistence.record_turn(
+                        self.db,
+                        session_id=session_id,
+                        role="user",
+                        text=user_text,
+                        idea_id=state.current_idea_id,
+                        ts=datetime.now(UTC),
+                    ),
+                )
+            state.extra[LAST_USER_REQUEST_KEY] = _UserRequest(digest, user_text, user_turn_id)
         else:
             await self._safe("upserting session", persistence.ensure_session(self.db, session_id))
 
@@ -372,6 +458,7 @@ class DelegatorService:
             t for t in body.tools or [] if (name := _tool_name(t)) and name not in self.registry
         ]
         return _Turn(
+            user_turn_index=state.user_turn_index,
             ctx=ctx,
             upstream_messages=upstream,
             all_tools=internal_tools + external_tools,
@@ -389,14 +476,18 @@ class DelegatorService:
     async def _run(self, turn: _Turn) -> AsyncIterator[str | list[_Call]]:
         """Yield speech text as it streams, then at most one list of external tool calls."""
         messages = turn.upstream_messages
-        for round_no in range(MAX_TOOL_ROUNDS + 1):
+        round_no = 0
+        empty_attempts = 0
+        while round_no <= MAX_TOOL_ROUNDS:
+            model = self._model_for_attempt(empty_attempts)
+            assert model is not None
             last_round = round_no == MAX_TOOL_ROUNDS
             tools = turn.external_tools if last_round else turn.all_tools
             choice = turn.tool_choice if round_no == 0 else _followup_tool_choice(turn.tool_choice)
             calls: dict[int, _Call] = {}
             round_text: list[str] = []
             try:
-                async for delta in self.chat_model.stream(
+                async for delta in model.stream(
                     messages,
                     tools or None,
                     temperature=turn.temperature,
@@ -427,6 +518,16 @@ class DelegatorService:
                 return
 
             ordered = [calls[i] for i in sorted(calls) if calls[i].name]
+            if not ordered and not round_text:
+                # Empty answer (seen live from gemma4): the agent would say nothing at all.
+                empty_attempts += 1
+                if self._model_for_attempt(empty_attempts) is not None:
+                    log.warning("delegator: empty model output; retry %d", empty_attempts)
+                    continue
+                log.warning("delegator: empty model output after retries; asking to repeat")
+                turn.text_parts.append(EMPTY_REPLY_TEXT)
+                yield EMPTY_REPLY_TEXT
+                return
             for call in ordered:
                 call.id = call.id or f"call_{uuid.uuid4().hex[:24]}"
             internal = [c for c in ordered if c.name in self.registry]
@@ -455,6 +556,7 @@ class DelegatorService:
                 for call in internal:
                     result = await self._execute(call, turn)
                     messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
+                round_no += 1
                 continue
             if internal:
                 log.warning("tool-round cap reached; ignoring internal calls %s", internal)
@@ -462,6 +564,15 @@ class DelegatorService:
                 turn.external_calls = external
                 yield external
             return
+
+    def _model_for_attempt(self, empty_attempts: int) -> ChatModel | None:
+        """Model for a round after ``empty_attempts`` empty answers: same model, then fallback."""
+        if empty_attempts <= 1:
+            return self.chat_model
+        if empty_attempts == 2:
+            fallback: ChatModel | None = getattr(self.chat_model, "fallback", None)
+            return fallback
+        return None
 
     async def _execute(self, call: _Call, turn: _Turn) -> str:
         tool = self.registry.get(call.name)
@@ -584,6 +695,10 @@ class DelegatorService:
                 ts=turn.response_started,
             ),
         )
+        completed: dict[int, bool] = state.extra.setdefault(COMPLETED_KEY, {})
+        completed[turn.user_turn_index] = turn.completed
+        for stale in sorted(completed)[:-8]:
+            del completed[stale]
         for hook in self.hooks:
             try:
                 await hook.after_response(turn.ctx, text)

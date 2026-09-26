@@ -7,6 +7,7 @@ registered here; the Delegator app only ever calls ``build_registry`` and
 
 from __future__ import annotations
 
+from relay.delegator.commitment import CommitmentHook, DispatchTaskTool, ProposeCommitmentTool
 from relay.delegator.contracts import ToolRegistry, TurnHook
 from relay.delegator.hooks.ideas import IdeaSummaryHook
 from relay.delegator.hooks.reports import ReportsHook
@@ -22,14 +23,16 @@ def build_registry() -> ToolRegistry:
     registry.register(RecallTool())
     registry.register(FocusIdeaTool())
     registry.register(LinkIdeasTool())
+    registry.register(ProposeCommitmentTool())
+    registry.register(DispatchTaskTool())
     return registry
 
 
 def build_hooks() -> list[TurnHook]:
     """Return the turn hooks, in the order they run.
 
-    ScopeHook goes first so the scope rules and any refusal note lead the
-    per-turn system notes.
+    ScopeHook goes first so any refusal note leads the per-turn notes;
+    CommitmentHook next, so the assent decision is made before other hooks' notes.
     """
-    hooks: list[TurnHook] = [ScopeHook(), ReportsHook(), IdeaSummaryHook()]
+    hooks: list[TurnHook] = [ScopeHook(), CommitmentHook(), ReportsHook(), IdeaSummaryHook()]
     return hooks

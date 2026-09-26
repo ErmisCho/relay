@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import AsyncIterator
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from relay.config import Settings, get_settings
 from relay.delegator import wiring
 from relay.delegator.auth import bearer_auth, check_secret_is_safe
+from relay.delegator.commitment.reconcile import start_orphaned_commitments
 from relay.delegator.contracts import SessionStore, ToolRegistry, TurnHook
 from relay.delegator.llm import ChatModel, build_chat_model
 from relay.delegator.service import ChatCompletionRequest, DelegatorService
@@ -22,6 +24,7 @@ from relay.store.db import create_engine, create_sessionmaker
 
 log = logging.getLogger(__name__)
 
+RECONCILE_TIMEOUT_S = 15.0
 SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 CHAT_COMPLETIONS_PATHS = (
     "/v1/chat/completions",
@@ -44,7 +47,8 @@ def create_app(
     """Build the Delegator app; every collaborator is injectable for tests.
 
     ``warm_dbos`` creates the DBOS client at startup so the first dispatch meets its
-    latency budget; tests pass False.
+    latency budget, then starts any commitment left without a task (see
+    ``commitment.reconcile``); tests pass False.
     """
     settings = settings or get_settings()
     check_secret_is_safe(settings)
@@ -72,6 +76,12 @@ def create_app(
                 log.warning("DBOS client warm-up raised; continuing", exc_info=True)
                 warmed = False
             log.info("DBOS client warm-up %s", "succeeded" if warmed else "failed")
+            # Commitments whose dispatch was cut short (crash between commit and start_task).
+            try:
+                async with asyncio.timeout(RECONCILE_TIMEOUT_S):
+                    await start_orphaned_commitments(sessionmaker, settings)
+            except Exception:
+                log.warning("startup reconciliation of commitments failed", exc_info=True)
         yield
         await service.drain()
         if engine is not None:

@@ -4,6 +4,7 @@ title: Build the relay demo website
 status: To Do
 assignee: []
 created_date: '2026-09-26 16:07'
+updated_date: '2026-09-26 17:02'
 labels:
   - phase-1
   - demo
@@ -36,3 +37,9 @@ The owner wants a website to demo relay to other people. A raw voice call hides 
 - [ ] #7 The site is gated by the demo passcode, works in current Chrome and Safari on desktop and on a phone-width screen, and a first-time viewer can complete the full flow without instructions from the owner (checked with one person)
 - [ ] #8 A README section documents how to run the demo locally and over the ngrok URL, including the required services (Postgres, Delegator, executor worker, Ollama models, ngrok on the Delegator port)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Scheduled for W6, after TASK-42 (event feed and demo API). Design canvas: https://claude.ai/artifact/JU3sPhDLreHjuwvmjdZuyo — desktop layout with the ElevenLabs bar visualizer (https://ui.elevenlabs.io/docs/components/bar-visualizer) in the centre and a 'Decision trace' panel on the right that shows the TASK-42 events, where a proposal → assent → dispatch chain opens into a task card (id, executor, description from the read-back, exact assent words, DBOS workflow id, status); plus a phone-width variant with the trace as a bottom sheet. Not designed yet: passcode gate, ideas/audit view (AC#5), delivered-brief reader (AC#4), guided scenario buttons (AC#6).
+<!-- SECTION:NOTES:END -->

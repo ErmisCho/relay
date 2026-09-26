@@ -35,10 +35,24 @@
       }
     },
     "tts": {
-      "model_id": "eleven_flash_v2_5"
+      "model_id": "eleven_flash_v2"
     },
     "turn": {
-      "silence_end_call_timeout": "${SILENCE_TIMEOUT_S}"
+      "silence_end_call_timeout": "${SILENCE_TIMEOUT_S}",
+      "turn_eagerness": "patient",
+      "interruption_ignore_terms": [
+        "yeah",
+        "yes",
+        "yep",
+        "mhm",
+        "uh huh",
+        "okay",
+        "ok",
+        "right",
+        "sure",
+        "I see"
+      ],
+      "merge_with_default_ignore_terms": true
     }
   },
   "platform_settings": {

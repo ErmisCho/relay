@@ -1,9 +1,11 @@
 ---
 id: TASK-24
 title: Implement the openWakeWord listener with silence auto-close
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-09-26 13:09'
+updated_date: '2026-09-26 18:03'
 labels:
   - phase-1
   - client
@@ -36,12 +38,24 @@ Wake word is not native to ElevenLabs and must run client-side. The session mode
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [ ] #1 Saying the wake phrase opens a voice session within 500 ms of the phrase ending
-- [ ] #2 A session with no speech for SILENCE_TIMEOUT closes automatically and `sessions.ended_at` is set
-- [ ] #3 After a session closes the listener resumes and can open a new session
-- [ ] #4 The wake listener does not hold the microphone while a voice session is active
+- [x] #2 A session with no speech for SILENCE_TIMEOUT closes automatically and `sessions.ended_at` is set
+- [x] #3 After a session closes the listener resumes and can open a new session
+- [x] #4 The wake listener does not hold the microphone while a voice session is active
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [ ] #1 False-trigger rate measured over 1 h of background audio and recorded in task notes
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+WakeWordDetector interface + openWakeWord impl (pretrained hey_jarvis, threshold, debounce) on 16 kHz 80 ms frames; listener state machine: listen → trigger → sessions row (wake_trigger) → release mic → VoiceSession.start → silence watchdog (SILENCE_TIMEOUT_S) / end_call → sessions.ended_at → resume; python -m relay.client; false-trigger measurement script; tests with fake detector/audio/VoiceSession; live latency + 1 h false-trigger run left to owner.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-26 W4: WakeListener (openwakeword 0.4.0 hey_jarvis via wakeword_model_paths, 2 s refractory, silence-flush reset), mic hand-off before VoiceSession.start, watchdog, ended_at written first in a shielded shutdown (double SIGINT under uv run), stale-session reconciler, trigger→connected latency. Live: wake word works (sessions.wake_trigger=hey_jarvis); trigger→start() 146 ms, trigger→connected 1002 ms (signed-URL fetch + websocket; follow-up: prefetch the signed URL while listening). OPEN: AC#1 <500 ms to connected (live 1.0 s), DoD 1 h false-trigger run (owner).
+<!-- SECTION:NOTES:END -->

@@ -44,7 +44,8 @@ def test_dry_run_substitutes_placeholders_and_redacts_secrets() -> None:
     custom_llm = agent["prompt"]["custom_llm"]
     assert custom_llm["url"] == "https://relay-tunnel.example/v1"
     assert custom_llm["api_key"] == {"secret_id": script.REDACTED}
-    assert payload["conversation_config"]["turn"]["silence_end_call_timeout"] == 45
+    # Server backstop outlasts the client watchdog (45 s) so the client closes first.
+    assert payload["conversation_config"]["turn"]["silence_end_call_timeout"] == 45 + 15
     assert payload["platform_settings"]["overrides"]["custom_llm_extra_body"] is True
 
     # The SDK models --apply sends must keep the fields relay depends on.
@@ -53,7 +54,7 @@ def test_dry_run_substitutes_placeholders_and_redacts_secrets() -> None:
     assert config.agent.prompt.custom_llm.url == "https://relay-tunnel.example/v1"
     assert config.agent.prompt.llm == "custom-llm"
     assert config.agent.prompt.built_in_tools and config.agent.prompt.built_in_tools.end_call
-    assert config.tts and config.tts.model_id == "eleven_flash_v2_5"
+    assert config.tts and config.tts.model_id == "eleven_flash_v2"  # English agents need flash v2
     platform = AgentPlatformSettingsRequestModel.model_validate(payload["platform_settings"])
     assert platform.overrides and platform.overrides.custom_llm_extra_body is True
 
@@ -129,3 +130,17 @@ def test_agent_is_private_signed_url_only() -> None:
     platform = AgentPlatformSettingsRequestModel.model_validate(payload["platform_settings"])
     assert platform.auth is not None and platform.auth.enable_auth is True
     assert not platform.auth.allowlist
+
+
+def test_backchannels_do_not_interrupt_and_turns_are_patient() -> None:
+    """Live call: a backchannel "Yeah." (or headset echo) cut every reply ~1 s in."""
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        delegator_public_url="https://relay-tunnel.example/",
+        delegator_shared_secret="shared-secret-value",
+    )
+    payload = json.loads(_load_script().render_dry_run(settings))
+    turn = ConversationalConfig.model_validate(payload["conversation_config"]).turn
+    assert turn is not None and turn.turn_eagerness == "patient"
+    assert {"yeah", "mhm", "okay"} <= set(turn.interruption_ignore_terms or [])
+    assert turn.merge_with_default_ignore_terms is True
