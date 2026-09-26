@@ -90,7 +90,7 @@ class FakeVoice:
         self.stops = 0
 
     def prepare(self) -> None:
-        pass
+        self.log.append("prepare")
 
     def start(self, session_id: str) -> None:
         self.log.append("start")
@@ -197,8 +197,16 @@ async def test_trigger_hands_mic_to_session_fast_and_end_call_resumes(
         assert created.wake_trigger == "hey_jarvis" and created.ended_at is None
 
         voice.end_call()  # the agent's end_call tool ("that's all")
-        await wait_for(lambda: audio.is_open)
-        assert log == ["mic-open", "mic-close", "start", "voice-released", "mic-open"]
+        await wait_for(lambda: log.count("prepare") == 2)
+        assert log == [
+            "mic-open",
+            "prepare",
+            "mic-close",
+            "start",
+            "voice-released",
+            "mic-open",
+            "prepare",
+        ]
         assert (await row(sessionmaker, voice.session_ids[0])).ended_at is not None
         assert voice.stops == 0
     finally:
@@ -219,6 +227,16 @@ async def test_silence_auto_closes_and_a_second_session_opens(
             assert (await row(sessionmaker, sid)).ended_at is not None
         assert voice.start_mic_was_open == [False, False]
         assert log.count("mic-open") == 3
+        # TASK-24 AC1: every return to LISTENING (after each session too) prefetches the next
+        # signed URL before the trigger, so no session waits on get_signed_url.
+        await wait_for(lambda: log.count("prepare") == 3)
+        assert [e for e in log if e in ("prepare", "start")] == [
+            "prepare",
+            "start",
+            "prepare",
+            "start",
+            "prepare",
+        ]
     finally:
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)

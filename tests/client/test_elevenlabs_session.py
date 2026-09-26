@@ -544,3 +544,23 @@ def test_prefetch_failure_falls_back_to_on_demand_and_logs_once(
     assert "signed_url" not in _run_session(harness, "s1")
     assert fetch.calls == 2
     assert len([r for r in caplog.records if "prefetch failed" in r.getMessage()]) == 1
+
+
+def test_prefetch_fetches_in_background_once_and_take_cancels_the_refresh_timer() -> None:
+    # The listener calls prefetch() on every return to LISTENING: a young URL must not cost a
+    # second get_signed_url, and a taken URL must not be refreshed by a leftover timer.
+    fetch = UrlFetcher()
+    cache = SignedUrlCache(fetch, refresh_after_s=0.2, clock=FakeClock())
+
+    cache.prefetch()
+    for t in [t for t in threading.enumerate() if t.name == "relay-signed-url"]:
+        t.join(5)
+    assert fetch.calls == 1
+
+    cache.prefetch()  # clock has not moved: the cached URL is still young
+    assert fetch.calls == 1
+
+    assert cache.take() == "wss://signed/1"
+    assert cache.take() is None
+    time.sleep(0.4)  # past refresh_after_s: an uncancelled timer would prefetch again
+    assert fetch.calls == 1

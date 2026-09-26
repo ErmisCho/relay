@@ -16,7 +16,7 @@ relay is a voice ideation partner. You say a wake word and think out loud with a
 ## Setup
 
 ```bash
-uv sync --extra dev               # runtime + dev dependencies
+uv sync                           # runtime + dev dependencies (dev group)
 cp .env.example .env              # then edit, see below
 docker compose up -d postgres     # Postgres 16 on localhost:55432 (user/pass/db: relay)
 uv run alembic upgrade head       # idea-graph schema (DBOS creates its own `dbos` schema)

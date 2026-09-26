@@ -17,7 +17,6 @@ dependencies = [
   "anthropic>=1.8.0",
   "dbos>=3.1.0",
   "pydantic-ai-slim[anthropic,dbos,duckduckgo,openai]>=2.51.0",
-  "trafilatura>=2.2.0",
   "elevenlabs>=2.69.0",
   "openwakeword>=0.4.0",
   "sounddevice>=0.5.6",
@@ -25,7 +24,8 @@ dependencies = [
   "pydantic-ai-harness[coder,dbos,researcher]>=0.36.0",
 ]
 
-[project.optional-dependencies]
+# A dependency group (not an extra) so plain `uv add/remove/sync` keeps the dev tools installed.
+[dependency-groups]
 dev = [
   "pytest>=8.0",
   "pytest-asyncio>=0.23",

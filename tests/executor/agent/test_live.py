@@ -1,7 +1,7 @@
 """Opt-in live run against the configured local models (RELAY_LLM_TESTS=1).
 
 Uses the real worker with the real research module and no stub models, so it exercises the
-Ollama models, DuckDuckGo search (needs network) and fetch_url end to end.
+Ollama models, DuckDuckGo search (needs network) and web_fetch end to end.
 """
 
 from __future__ import annotations

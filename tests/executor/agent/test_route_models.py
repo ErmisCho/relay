@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import httpx2
 import pytest
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 
 from relay.config import Settings
-from relay.executor.agent.agent import build_route_models, route_model_refs
+from relay.executor.agent.agent import build_model_from_ref, build_route_models, route_model_refs
 
 
 def _settings(**overrides: object) -> Settings:
@@ -48,7 +49,6 @@ def test_hard_route_is_luna_on_responses_api_with_local_fallback(
     # Chat Completions rejects function tools + reasoning effort for gpt-6-luna.
     assert isinstance(primary, OpenAIResponsesModel) and primary.model_name == "gpt-6-luna"
     assert primary.settings == {"openai_reasoning_effort": "medium"}
-    assert primary.client.max_retries == 0
     assert isinstance(fallback, OpenAIChatModel) and fallback.model_name == "qwen3.8:latest"
 
 
@@ -70,3 +70,20 @@ def test_hard_route_without_openai_key_runs_on_fallback_alone(
     hard = build_route_models(_settings(openai_api_key=None))["hard"]
     assert isinstance(hard, OpenAIChatModel) and hard.model_name == "qwen3.8:latest"
     assert "OPENAI_API_KEY" in caplog.text
+
+
+@pytest.mark.parametrize("ref", ["ollama:gemma4:e4b", "openai:gpt-6-luna"])
+def test_models_fail_fast_so_a_hung_endpoint_hands_over_to_the_fallback(ref: str) -> None:
+    # SDK retries or the default 10-minute read timeout would stall the route for minutes.
+    model = build_model_from_ref(ref, _settings())
+    assert isinstance(model, OpenAIChatModel | OpenAIResponsesModel)
+    assert model.client.max_retries == 0
+    timeout = model.client.timeout
+    assert isinstance(timeout, httpx2.Timeout)
+    assert (timeout.connect, timeout.read) == (5.0, 120.0)
+
+
+def test_ollama_model_talks_to_the_configured_base_url() -> None:
+    model = build_model_from_ref("ollama:gemma4:e4b", _settings())
+    assert isinstance(model, OpenAIChatModel)
+    assert model.base_url == "http://ollama.test:11434/v1/"
