@@ -4,6 +4,7 @@ title: Build the research & writing executor
 status: To Do
 assignee: []
 created_date: '2026-09-26 13:09'
+updated_date: '2026-09-26 13:39'
 labels:
   - phase-1
   - executor
@@ -42,3 +43,9 @@ Phase 1 ships exactly one executor vertical: research & writing. Its terminal ar
 - [ ] #3 Scope exclusions from the commitment are respected in the output
 - [ ] #4 Primary model failure falls back to the alternate provider without failing the task
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-26 model config (user: use local LLMs, providers via .env): benchmarked installed Ollama models via OpenAI-compatible API at localhost:11434. gemma4:e4b — correct tool calls, warm TTFT ~0.2 s, 4/4 correct assent/hedge classifications → default for Delegator turns and assent classifier. glm-4.7-flash — correct tool calls but a thinking model, warm TTFT 4–12 s → too slow for voice; default for the research executor. All model ids/base URLs/keys come from .env (e.g. DELEGATOR_MODEL, ASSENT_MODEL, RESEARCH_MODEL, RESEARCH_FALLBACK_MODEL); frontier providers swap in by config only.
+<!-- SECTION:NOTES:END -->

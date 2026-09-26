@@ -4,7 +4,7 @@ title: 'Implement the commitment protocol (score, propose, assent, dispatch)'
 status: To Do
 assignee: []
 created_date: '2026-09-26 13:09'
-updated_date: '2026-09-26 13:14'
+updated_date: '2026-09-26 13:39'
 labels:
   - phase-1
   - protocol
@@ -52,3 +52,9 @@ This is the product. A gate firing without real agreement destroys trust permane
 <!-- DOD:BEGIN -->
 - [ ] #1 Assent classifier prompt and scripted assent/hedge test utterances checked into the repo as tests
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-09-26 model config (user: use local LLMs, providers via .env): benchmarked installed Ollama models via OpenAI-compatible API at localhost:11434. gemma4:e4b — correct tool calls, warm TTFT ~0.2 s, 4/4 correct assent/hedge classifications → default for Delegator turns and assent classifier. glm-4.7-flash — correct tool calls but a thinking model, warm TTFT 4–12 s → too slow for voice; default for the research executor. All model ids/base URLs/keys come from .env (e.g. DELEGATOR_MODEL, ASSENT_MODEL, RESEARCH_MODEL, RESEARCH_FALLBACK_MODEL); frontier providers swap in by config only.
+<!-- SECTION:NOTES:END -->

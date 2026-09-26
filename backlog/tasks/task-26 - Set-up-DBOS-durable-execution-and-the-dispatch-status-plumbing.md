@@ -4,6 +4,7 @@ title: Set up DBOS durable execution and the dispatch/status plumbing
 status: To Do
 assignee: []
 created_date: '2026-09-26 13:09'
+updated_date: '2026-09-26 13:39'
 labels:
   - phase-1
   - executor
@@ -40,4 +41,5 @@ Dispatch must return immediately so the conversation continues uninterrupted, an
 - [ ] #2 Killing the executor process mid-workflow and restarting it resumes the workflow to completion
 - [ ] #3 Dispatching the same commitment twice does not start two workflows
 - [ ] #4 A completed task is announced on the next agent turn after completion, not mid-response, and the artifact row exists regardless
+- [ ] #5 If the user barges in during a completion announcement, the report stays pending and is re-offered briefly at the next turn boundary (decision-3)
 <!-- AC:END -->
