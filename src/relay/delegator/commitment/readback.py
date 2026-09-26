@@ -9,18 +9,41 @@ delivered is judged from the assistant message as ElevenLabs recorded it: an int
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator, Mapping
 from typing import Any
 
+from relay.config import get_settings
 from relay.delegator.adapters.openai_compat import content_text
 from relay.delegator.scope import ArtifactKind
 
 MAX_FIELD_CHARS = 240
 
-#: How each terminal artifact is named in the read-back ("…and I'll leave it as <phrase>").
-ARTIFACT_PHRASE: dict[ArtifactKind, str] = {
+#: A code result without a GitHub token stays a local branch (TASK-33).
+LOCAL_BRANCH_PHRASE = "a branch in the project folder"
+_PHRASES: dict[ArtifactKind, str] = {
     ArtifactKind.DOCUMENT: "a document for you to read",
-    ArtifactKind.PULL_REQUEST: "a draft pull request for you to review",
+    ArtifactKind.PULL_REQUEST: "a PR for you to look at",
 }
+
+
+class _ArtifactPhrases(Mapping[ArtifactKind, str]):
+    """Read at lookup time: a pull request is promised only when a GitHub token is configured,
+    otherwise the read-back promises what the executor will actually leave, the local branch."""
+
+    def __getitem__(self, kind: ArtifactKind) -> str:
+        if kind is ArtifactKind.PULL_REQUEST and not get_settings().github_token:
+            return LOCAL_BRANCH_PHRASE
+        return _PHRASES[kind]
+
+    def __iter__(self) -> Iterator[ArtifactKind]:
+        return iter(_PHRASES)
+
+    def __len__(self) -> int:
+        return len(_PHRASES)
+
+
+#: How each terminal artifact is named in the read-back ("…and I'll leave it as <phrase>").
+ARTIFACT_PHRASE: Mapping[ArtifactKind, str] = _ArtifactPhrases()
 #: Short noun for the spoken dispatch confirmation ("…when the <noun> is ready").
 ARTIFACT_NOUN: dict[ArtifactKind, str] = {
     ArtifactKind.DOCUMENT: "document",

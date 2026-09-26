@@ -139,6 +139,21 @@ def sandbox_env(
     return env
 
 
+def sandbox_argv(workspace: Path, denied_read_roots: Iterable[Path]) -> list[str] | None:
+    """``sandbox-exec -p <profile>`` confining a worker-side command to ``workspace``.
+
+    For commands the WORKER runs on the agent's files (tests, ``git add``/``commit``, which run
+    hooks and filters the agent could have written): same profile as the agent's shell. None
+    when the sandbox is unavailable.
+    """
+    exe = sandbox_exec_path()
+    if exe is None:
+        return None
+    root = Path(_real(workspace))
+    (root / TMPDIR_NAME).mkdir(parents=True, exist_ok=True)
+    return [str(exe), "-p", build_profile(root, list(denied_read_roots))]
+
+
 class SandboxedShellToolset(ShellToolset[AgentDepsT]):
     """``ShellToolset`` whose spawned commands all run under ``sandbox-exec``."""
 

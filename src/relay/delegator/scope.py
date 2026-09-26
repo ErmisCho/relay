@@ -24,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 
 from relay.config import Settings
 from relay.delegator.contracts import ToolContext, ToolResult
-from relay.store.models import ARTIFACT_KINDS, TASK_KINDS
+from relay.store.models import COMMITMENT_ARTIFACT_KINDS, TASK_KINDS
 
 PROMPT_PATH = Path(__file__).parent / "prompts" / "system.md"
 
@@ -56,7 +56,7 @@ KIND_FOR_ARTIFACT: dict[ArtifactKind, Kind] = {a: k for k, a in ARTIFACT_FOR_KIN
 
 # The enums must mirror the store's CHECK constraints; fail at import if they drift.
 assert {k.value for k in Kind} == set(TASK_KINDS), "Kind drifted from store TASK_KINDS"
-assert {a.value for a in ArtifactKind} == set(ARTIFACT_KINDS), "ArtifactKind drifted"
+assert {a.value for a in ArtifactKind} == set(COMMITMENT_ARTIFACT_KINDS), "ArtifactKind drifted"
 
 _VERTICAL_TEXT: dict[Kind, str] = {
     Kind.RESEARCH: (
@@ -65,7 +65,8 @@ _VERTICAL_TEXT: dict[Kind, str] = {
     ),
     Kind.CODE: (
         "code and repos: write code, refactor, run tests. "
-        "Terminal artifact: a draft pull request on a branch, never merged."
+        "Terminal artifact: a draft pull request on a branch (or, without GitHub, the branch "
+        "in the idea's project folder), never merged."
     ),
 }
 

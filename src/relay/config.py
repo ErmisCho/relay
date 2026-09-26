@@ -146,6 +146,12 @@ class Settings(BaseSettings):
     executor_url: str = "http://localhost:8001"
     # Each idea gets its own project folder under this root; must be outside the relay repo.
     executor_projects_root: str = "~/relay-projects"
+    # Code tasks (TASK-33): the worker pushes the task branch and opens a DRAFT pull request
+    # with this token. Empty: the result stays a local branch in the project folder. A project
+    # without an `origin` gets a new private repo under GITHUB_OWNER (default: the token's user).
+    github_token: str = ""
+    github_owner: str = ""
+    github_api_url: str = "https://api.github.com"
 
     # --- Client ----------------------------------------------------------------------------
     wake_model: str = "hey_jarvis"

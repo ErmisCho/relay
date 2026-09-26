@@ -11,7 +11,6 @@ their pre-rename values.
 
 from __future__ import annotations
 
-import importlib
 import os
 import tempfile
 import uuid
@@ -27,6 +26,7 @@ from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from relay.config import get_settings
+from relay.executor import workspace
 from relay.executor.agent.agent import (
     ExecutorDeps,
     ResearchBrief,
@@ -110,12 +110,10 @@ def record_route_step(task_id: str, route: dict[str, Any]) -> dict[str, Any]:
 @DBOS.step(name="relay.executor.workspace")
 def workspace_step(idea_id: str) -> str:
     """The idea's project folder (created if missing); recorded, so a replay reuses it."""
-    # Resolved at call time, not import time, so tests can install a stub
-    # `relay.executor.workspace` before the first run.
-    workspace = importlib.import_module("relay.executor.workspace")
     iid = uuid.UUID(idea_id)
     with engine().connect() as c:
         title = c.execute(select(Idea.title).where(Idea.id == iid)).scalar_one()
+    # Attribute lookup at call time, so tests can stub `workspace.project_dir`.
     return str(workspace.project_dir(iid, title, get_settings()))
 
 

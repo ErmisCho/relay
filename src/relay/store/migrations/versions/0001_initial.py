@@ -15,7 +15,6 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 from relay.store.models import (
-    ARTIFACT_KINDS,
     EDGE_RELATIONS,
     IDEA_STATUSES,
     IDEAS_FTS_EXPR,
@@ -26,6 +25,9 @@ from relay.store.models import (
     TURN_ROUTES,
     in_list,
 )
+
+# Frozen: 0004 widened the CHECK; this revision keeps the list it originally created.
+ARTIFACT_KINDS_0001 = ("pull_request", "document")
 
 revision: str = "0001_initial"
 down_revision: str | None = None
@@ -132,7 +134,7 @@ def upgrade() -> None:
         sa.Column("summary", sa.Text()),
         sa.Column("reviewed_at", TSTZ),
         _created_at(),
-        sa.CheckConstraint(in_list("kind", ARTIFACT_KINDS), name=op.f("ck_artifacts_kind")),
+        sa.CheckConstraint(in_list("kind", ARTIFACT_KINDS_0001), name=op.f("ck_artifacts_kind")),
     )
     op.create_index("ix_artifacts_task_id", "artifacts", ["task_id"])
 

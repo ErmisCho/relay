@@ -30,13 +30,22 @@ from pathlib import Path
 import httpx2
 from pydantic import BaseModel, Field, HttpUrl
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.capabilities import AbstractCapability, CombinedCapability, DynamicCapability
+from pydantic_ai.capabilities import (
+    AbstractCapability,
+    Capability,
+    CombinedCapability,
+    DynamicCapability,
+    WebFetch,
+    WebSearch,
+)
 from pydantic_ai.durable_exec.dbos import DBOSDurability
 from pydantic_ai.models import Model
 from pydantic_ai.models.fallback import FallbackModel
-from pydantic_ai_harness import Researcher
 from pydantic_ai_harness.coder import Coder
+from pydantic_ai_harness.compaction import ClearToolResults
+from pydantic_ai_harness.researcher import DEFAULT_RESEARCHER_INSTRUCTIONS
 from pydantic_ai_harness.shell import LLM_API_KEY_ENV_PATTERNS, Shell
+from pydantic_ai_harness.tool_output_limits import Band, ToolOutputLimits, Truncate
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from relay.config import Settings, get_settings, parse_model_ref
@@ -86,6 +95,18 @@ SHELL_DENIED_ENV_PATTERNS: tuple[str, ...] = (
 # (credentials, keychains, git config) or the relay repository and its .env.
 SHELL_DENIED_COMMANDS: tuple[str, ...] = ("gh", "glab")
 
+# Context budget. Every earlier tool result is re-sent with each model request, so unbounded
+# results (the harness defaults: 64k chars per result, 60k per read_file, clearing only at 70%
+# of a 200k window) grew one request past 61k tokens: a 429 TPM from gpt-6-luna and a 120 s
+# prefill timeout on local qwen (task 0952c583). Each result is cut to TOOL_OUTPUT_MAX_CHARS
+# (~2.5k tokens) and, once the history passes CLEAR_TOOL_RESULTS_TOKENS (4 chars/token
+# estimate), all but the last KEEP_TOOL_PAIRS results are replaced by a placeholder, so a
+# request stays near 12k tokens however many pages the agent reads. Raise these only together
+# with the local model's read timeout (MODEL_TIMEOUT).
+TOOL_OUTPUT_MAX_CHARS = 10_000
+CLEAR_TOOL_RESULTS_TOKENS = 8_000
+KEEP_TOOL_PAIRS = 3
+
 # pydantic-ai prints a multi-line "observability" banner on first run; keep worker logs clean.
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
@@ -115,11 +136,45 @@ post, book, buy, publish, push or merge anything: no git push, no pull requests,
 Method:
 1. Use your web search tool to find relevant, reputable pages, then web_fetch to read the best.
 2. Your working folder is this idea's project folder; keep any files you write inside it.
+   For temporary files use "$TMPDIR" (e.g. `mktemp "$TMPDIR/x.XXXXXX"`): bare `mktemp` fails.
 3. Write the result from what you actually read. Do not invent facts, figures or URLs.
 4. Stay strictly inside the goal. The "Out of scope" text is binding: do not research,
    discuss, recommend or even mention anything it excludes.
 5. List in `sources` only URLs you fetched or that search results showed and you relied on.
    Do not put a Sources section inside body_markdown; it is added automatically.
+"""
+
+
+# Persisted in DBOS step names of code runs (`relay_code__model.request`).
+CODE_AGENT_NAME = "relay_code"
+
+
+class CodeChangeSummary(BaseModel):
+    """The agent's structured output for code tasks; becomes the draft PR description."""
+
+    title: str = Field(min_length=1, description="Pull request title, imperative, no Markdown.")
+    summary: str = Field(min_length=1, description="Two or three plain sentences: what changed.")
+    changes: list[str] = Field(description="One short line per change made (file: what).")
+    how_to_run: str = Field(
+        min_length=1, description="How to run or try the result (commands, in Markdown)."
+    )
+
+
+CODE_INSTRUCTIONS = """\
+You are relay's code executor. You make ONE change in this idea's project folder for the user to
+review later. The folder is a git repository already on a fresh branch made for this task: relay
+commits whatever you leave in the working tree, runs the tests, and leaves it as a draft pull
+request. You never push, merge, publish or open pull requests yourself, and you do not commit,
+switch branches or rewrite history (no git commit/checkout/switch/merge/rebase/reset/push).
+
+Method:
+1. Read the relevant files first (list_files, read_file, grep), then edit with the file tools.
+2. Stay strictly inside the goal. The "Out of scope" text is binding: do not touch it.
+3. The shell has no network: package installs and downloads fail, so do not try them. Use only
+   what is already installed. For temporary files use "$TMPDIR" (bare `mktemp` fails).
+4. Add or update tests for what you change when the project has tests. You may run them; relay
+   runs them again afterwards and reports the result, pass or fail.
+5. In `changes` list what you actually changed; in `how_to_run` say how to run or try it.
 """
 
 
@@ -162,14 +217,47 @@ def workspace_capabilities(workspace: Path) -> list[AbstractCapability[ExecutorD
     coder = Coder[ExecutorDeps](root, repo_context=False, sub_agents=False)
     coding: list[AbstractCapability[ExecutorDeps]] = []
     for c in coder.capabilities:
-        if not isinstance(c, Shell):
-            coding.append(c)
-        elif shell is not None:
-            coding.append(shell)
+        if isinstance(c, Shell):
+            if shell is not None:
+                coding.append(shell)
+        elif not isinstance(c, ClearToolResults | ToolOutputLimits):
+            coding.append(c)  # Coder's own, looser context limits are replaced below
+    # The Researcher capability minus its sub-agents and its output limits: those spill a long
+    # result and add `read_tool_result`, whose returns are exempt from every limit, so a model
+    # reading a spilled page back got it whole, and it was never cleared. Same instructions.
     # Sub-agents off: local models are slow and every delegation multiplies model calls, so
     # one agent does all the reading. Re-enable when a frontier model is the default executor
     # model.
-    return [Researcher[ExecutorDeps](subagents=[]), *coding]
+    research: list[AbstractCapability[ExecutorDeps]] = [
+        Capability[ExecutorDeps](instructions=DEFAULT_RESEARCHER_INSTRUCTIONS),
+        WebSearch[ExecutorDeps](local=True),
+        # Local fetch only: a provider-native fetch (OpenAI Responses) feeds whole pages to
+        # the model server-side, where no output limit can reach them.
+        WebFetch[ExecutorDeps](native=False, local=True),
+    ]
+    return [*research, *coding, *context_limits()]
+
+
+class _TruncateToolOutputs(ToolOutputLimits[ExecutorDeps]):
+    """Truncation-only output limits: nothing is spilled, so no retrieval tool is added."""
+
+    def get_toolset(self) -> None:
+        return None
+
+
+def context_limits() -> list[AbstractCapability[ExecutorDeps]]:
+    """Per-result truncation plus clearing of old results (see ``TOOL_OUTPUT_MAX_CHARS``)."""
+    return [
+        ClearToolResults[ExecutorDeps](
+            max_tokens=CLEAR_TOOL_RESULTS_TOKENS, keep_pairs=KEEP_TOOL_PAIRS
+        ),
+        _TruncateToolOutputs(
+            id="executor_tool_output_limits",
+            bands=[
+                Band(over=TOOL_OUTPUT_MAX_CHARS, action=Truncate(max_chars=TOOL_OUTPUT_MAX_CHARS))
+            ],
+        ),
+    ]
 
 
 def _run_capabilities(ctx: RunContext[ExecutorDeps]) -> AbstractCapability[ExecutorDeps]:
@@ -303,12 +391,29 @@ def build_route_models(settings: Settings | None = None) -> dict[Route, Model]:
 def build_executor_agent(
     model: Model, routes: Mapping[Route, Model] | None = None
 ) -> Agent[ExecutorDeps, ResearchBrief]:
+    return _build_agent(AGENT_NAME, ResearchBrief, INSTRUCTIONS, model, routes)
+
+
+def build_code_agent(
+    model: Model, routes: Mapping[Route, Model] | None = None
+) -> Agent[ExecutorDeps, CodeChangeSummary]:
+    """Same tools, routing and durability as the research agent; code output and instructions."""
+    return _build_agent(CODE_AGENT_NAME, CodeChangeSummary, CODE_INSTRUCTIONS, model, routes)
+
+
+def _build_agent[T: BaseModel](
+    name: str,
+    output_type: type[T],
+    instructions: str,
+    model: Model,
+    routes: Mapping[Route, Model] | None,
+) -> Agent[ExecutorDeps, T]:
     return Agent(
         model,
-        name=AGENT_NAME,
+        name=name,
         deps_type=ExecutorDeps,
-        output_type=ResearchBrief,
-        instructions=INSTRUCTIONS,
+        output_type=output_type,
+        instructions=instructions,
         capabilities=[
             executor_capability(),
             DBOSDurability(models={str(k): m for k, m in (routes or {}).items()}),
@@ -344,3 +449,27 @@ def get_executor_agent() -> Agent[ExecutorDeps, ResearchBrief]:
         if _agent is not None:
             return _agent
     return configure_executor_agent()
+
+
+_code_agent: Agent[ExecutorDeps, CodeChangeSummary] | None = None
+
+
+def configure_code_agent(
+    model: Model | None = None, routes: Mapping[Route, Model] | None = None
+) -> Agent[ExecutorDeps, CodeChangeSummary]:
+    """(Re)build the process-wide code agent; same defaults as ``configure_executor_agent``."""
+    global _code_agent
+    with _lock:
+        _code_agent = build_code_agent(
+            model if model is not None else build_executor_model(),
+            routes if routes is not None else build_route_models(),
+        )
+        return _code_agent
+
+
+def get_code_agent() -> Agent[ExecutorDeps, CodeChangeSummary]:
+    """The configured code agent, built lazily from settings on first use."""
+    with _lock:
+        if _code_agent is not None:
+            return _code_agent
+    return configure_code_agent()

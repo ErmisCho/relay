@@ -35,7 +35,11 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 IDEA_STATUSES = ("exploring", "committed", "executing", "delivered", "abandoned")
 TASK_KINDS = ("code", "research")
 TASK_STATUSES = ("queued", "running", "succeeded", "failed")
-ARTIFACT_KINDS = ("pull_request", "document")
+# What a commitment promises (one per task kind; mirrored by delegator.scope.ArtifactKind).
+COMMITMENT_ARTIFACT_KINDS = ("pull_request", "document")
+# What an artifacts row records: a promised kind, or "branch" when a code task could not be
+# published and stays a committed branch in the idea's project folder (TASK-33).
+ARTIFACT_KINDS = (*COMMITMENT_ARTIFACT_KINDS, "branch")
 EDGE_RELATIONS = ("refines", "supersedes", "blocks", "spun_off_from")
 TURN_ROUTES = ("small_local", "frontier")
 TURN_ROLES = ("user", "assistant", "system", "tool")

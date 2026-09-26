@@ -30,7 +30,7 @@ from dataclasses import dataclass
 
 TASK_RUNNER_MODULES_ENV = "EXECUTOR_RUNNER_MODULES"
 # Built-in runner modules, imported by every worker before any EXECUTOR_RUNNER_MODULES.
-BUILTIN_RUNNER_MODULES: tuple[str, ...] = ("relay.executor.agent",)
+BUILTIN_RUNNER_MODULES: tuple[str, ...] = ("relay.executor.agent", "relay.executor.code")
 
 
 @dataclass(frozen=True)
@@ -51,7 +51,7 @@ class TaskContext:
 class ArtifactSpec:
     """What a runner produced; becomes an ``artifacts`` row."""
 
-    kind: str  # "document" | "pull_request"
+    kind: str  # "document" | "pull_request" | "branch"
     url: str
     summary: str | None = None
     # `<provider>:<model>` that produced the result; stored as tasks.served_model.
