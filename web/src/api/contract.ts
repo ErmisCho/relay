@@ -97,8 +97,8 @@ export interface SendMessageRequest {
 }
 
 export interface SendMessageResponse {
-  /** Id of the persisted user turn; the matching `user_turn` event carries it. */
-  turn_id: string;
+  /** Id of the persisted user turn; the matching `user_turn` event carries it. Null if the store was unreachable. */
+  turn_id: string | null;
 }
 
 /* ------------------------------------------------------------------ events */
@@ -137,7 +137,8 @@ export interface UserTurnData {
 }
 
 export interface AssistantTurnData {
-  turn_id: string;
+  /** Null only when the store was unreachable and the turn was not persisted. */
+  turn_id: string | null;
   /** What the agent said. For voice, the text as ElevenLabs recorded it (truncated on barge-in). */
   text: string;
   /** True when the user barged in before the answer finished. */
@@ -147,8 +148,8 @@ export interface AssistantTurnData {
 }
 
 export interface ScopeRefusalData {
-  /** The user turn that was refused. */
-  turn_id: string;
+  /** The user turn that was refused (null if it could not be persisted). */
+  turn_id: string | null;
   utterance: string;
   /** Short machine-ish reason, e.g. "email", "calendar", "purchase", "browser". */
   category: string;
@@ -180,14 +181,15 @@ export type ReadyVerdict = "keep_talking" | "ready_to_execute";
 export interface ReadyGateData {
   idea_id: string | null;
   verdict: ReadyVerdict;
-  /** One sentence of evidence, when the scorer gives one. */
+  /** One sentence of evidence, when the scorer gives one. The phase-1 Delegator always sends null. */
   reason?: string | null;
 }
 
 export interface ProposalData {
   /** Server-side id of the in-memory pending proposal (not a commitment id yet). */
   proposal_id: string;
-  idea_id: string;
+  /** Null when the conversation has no current idea yet (nothing called focus_idea). */
+  idea_id: string | null;
   goal: string;
   scope_excludes: string;
   artifact_kind: string; // "document" | "pull_request" | future kinds
@@ -199,7 +201,7 @@ export type AssentLabel = "affirmative" | "hedge" | "negative" | "new_informatio
 
 export interface AssentData {
   proposal_id: string;
-  turn_id: string;
+  turn_id: string | null;
   label: AssentLabel;
   /** The user's words, verbatim. */
   utterance: string;
@@ -224,7 +226,7 @@ export interface DispatchData {
   workflow_id: string;
   /** Executor capability, e.g. "research" or "code". Rendered as-is. */
   kind: string;
-  idea_id: string;
+  idea_id: string | null;
 }
 
 export type TaskStatus = "queued" | "running" | "succeeded" | "failed";
@@ -243,12 +245,14 @@ export interface Source {
 export interface ArtifactDeliveredData {
   artifact_id: string;
   task_id: string;
-  idea_id: string;
+  idea_id: string | null;
+  /** The brief's first `# ` heading, else its summary. */
   title: string;
   /** The one-sentence summary relay speaks when it reports back. */
   summary: string;
   /** The brief, as Markdown. The client renders it with raw HTML disabled. */
   markdown: string;
+  /** Links cited in the Markdown (`[title](http…)`), de-duplicated by URL, in order. */
   sources: Source[];
 }
 
@@ -334,7 +338,7 @@ export interface TasksResponse {
 export interface ArtifactResponse {
   id: string;
   task_id: string;
-  idea_id: string;
+  idea_id: string | null;
   kind: string;
   title: string;
   summary: string | null;

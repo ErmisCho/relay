@@ -347,15 +347,19 @@ class DemoRuntime:
                     await s.scalars(select(Artifact).where(Artifact.task_id.in_(watched)))
                 ).all()
             }
-            idea_ids = dict(
-                (
+            # Build the dict from rows explicitly: ``dict(result)`` sees ``Result.keys()`` (the
+            # column names) and then subscripts the result, which raised on every poll, so no
+            # task_status / artifact_delivered ever reached the feed.
+            idea_ids = {
+                task_id: idea_id
+                for task_id, idea_id in (
                     await s.execute(
                         select(Task.id, Commitment.idea_id)
                         .join(Commitment, Commitment.id == Task.commitment_id)
                         .where(Task.id.in_(watched))
                     )
-                ).tuples()
-            )
+                ).all()
+            }
         for task in rows:
             sid, last = watched[task.id]
             if task.status != last:
@@ -579,7 +583,7 @@ def build_router(rt: DemoRuntime) -> APIRouter:
                 )
             query = query.where(Task.id.in_(ids))
         async with rt.db() as s:
-            rows = (await s.execute(query.order_by(Task.created_at.desc()))).tuples().all()
+            rows = (await s.execute(query.order_by(Task.created_at.desc()))).all()
         return {
             "tasks": [
                 {

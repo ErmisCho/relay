@@ -262,7 +262,8 @@ export function createMockApi(timing: MockTiming = DEFAULT_TIMING): RelayApi {
     const at = nowIso();
     commitments.push({
       id: commitmentId,
-      idea_id: proposal.idea_id,
+      // The store's commitments.idea_id is NOT NULL; the mock always focuses an idea before proposing.
+      idea_id: proposal.idea_id ?? newId(),
       goal: proposal.goal,
       scope_excludes: proposal.scope_excludes,
       artifact_kind: proposal.artifact_kind,
@@ -283,7 +284,7 @@ export function createMockApi(timing: MockTiming = DEFAULT_TIMING): RelayApi {
       artifact_id: null,
     };
     tasks.set(taskId, task);
-    const idea = ideas.get(proposal.idea_id);
+    const idea = proposal.idea_id ? ideas.get(proposal.idea_id) : undefined;
     if (idea) Object.assign(idea, { status: "committed", updated_at: at });
     emit({
       type: "dispatch",

@@ -34,8 +34,10 @@ export const SCENARIOS: Scenario[] = [
   {
     id: "scope",
     title: "Out of scope",
-    caption: "Ask it to book something: a clear refusal, no partial attempt.",
-    steps: ["Can you book me a heat pump installer for next week?"],
+    caption: "Ask it to send an email: a clear refusal, no partial attempt.",
+    // Must trip the Delegator's hard scope gate (relay.delegator.scope.detect_out_of_scope), not
+    // just the model's own judgement, or the trace shows no scope_refusal. "book me …" does not.
+    steps: ["Can you send an email to a heat pump installer and ask them for a quote?"],
   },
   {
     id: "recall",

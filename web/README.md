@@ -32,35 +32,53 @@ npm run dev:mock        # http://localhost:5173, passcode: relay-demo
 
 ### Against the real Delegator (locally)
 
-The site needs the TASK-42 demo endpoints (see [CONTRACT.md](CONTRACT.md)). Start the services from the repository README first:
+The site talks to the TASK-42 demo endpoints (see [CONTRACT.md](CONTRACT.md)). All commands run from the repository root unless noted.
 
-1. Postgres (`docker compose up -d`)
-2. Ollama with the delegator and executor models pulled
-3. the Delegator on port 8000, with the demo passcode and the ElevenLabs key/agent id in its environment
-4. the executor worker on port 8001
+1. Postgres (`docker compose up -d`) with the schema at head: `uv run alembic upgrade head` (the Delegator answers 500 on `/demo` routes when the database is behind the code, e.g. `column sessions.end_reason does not exist`).
+2. Ollama running with the models named in `.env` pulled.
+3. Build the site so the Delegator can serve it (it mounts `web/dist` at `/` when the demo is on):
 
-Then:
+   ```bash
+   (cd web && npm install && npm run build)
+   ```
 
-```bash
-npm run dev             # proxies /demo to http://localhost:8000
-# or: RELAY_DELEGATOR_URL=http://127.0.0.1:8000 npm run dev
-```
+4. The executor worker (picks dispatched tasks off the DBOS queue in Postgres):
+
+   ```bash
+   uv run python -m relay.executor                     # 127.0.0.1:8001, EXECUTOR_PORT to change
+   curl http://127.0.0.1:8001/healthz                  # {"ok":true,"kinds":["research"]}
+   ```
+
+5. The Delegator with the demo turned on. `DEMO_PASSCODE` is required (empty = no `/demo` routes, 404); keep it out of the repo and out of `.env.example`:
+
+   ```bash
+   DEMO_PASSCODE="$(python3 -c 'import secrets; print(secrets.token_urlsafe(12))')" \
+     uv run python -m relay.delegator                  # 127.0.0.1:8000, DELEGATOR_PORT to change
+   ```
+
+   Optional: `DEMO_MAX_VOICE_SECONDS` (default 600), `DEMO_WEB_DIST` (default `web/dist`, relative to the working directory), `DEMO_TASK_POLL_S` (default 0.5). Voice also needs `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID`; without them `POST /demo/sessions/{id}/voice` answers `503 voice_unavailable` and typing still works.
+
+6. Open http://127.0.0.1:8000/ and enter the passcode. Or, to work on the UI with hot reload, run Vite and let it proxy `/demo` to the Delegator:
+
+   ```bash
+   cd web
+   npm run dev                                         # http://localhost:5173 → /demo on :8000
+   RELAY_DELEGATOR_URL=http://127.0.0.1:8100 npm run dev -- --port 5174   # other ports
+   ```
+
+With local models a reply takes seconds to a minute, and a research brief several minutes. Task status reaches the page only for tasks dispatched by the Delegator you are looking at (it polls their rows), and the trace history lives in the Delegator's memory: after a Delegator restart a reload shows an empty trace, while "Ideas & audit" still shows everything.
 
 Browsers only expose the microphone on `https` or `localhost`.
 
 ### Over the ngrok URL
 
-```bash
-npm run build           # type-checks, then writes web/dist
-```
-
-Serve `web/dist` from the Delegator at `/` (see CONTRACT.md, "Serving and origin") and point ngrok at the Delegator port:
+Run steps 1–5 above, then point ngrok at the Delegator port:
 
 ```bash
 ngrok http --url=geology-hardiness-cage.ngrok-free.dev 8000
 ```
 
-Open https://geology-hardiness-cage.ngrok-free.dev, click through ngrok's one-time browser warning, and enter the passcode. ElevenLabs sessions use the server-issued token, so the private agent works from any origin (no localhost allowlist, see elevenlabs-js issue #320).
+Open https://geology-hardiness-cage.ngrok-free.dev, click through ngrok's one-time browser warning, and enter the passcode. The cookie is marked `Secure` automatically behind ngrok (`X-Forwarded-Proto: https`). ElevenLabs sessions use the server-issued token, so the private agent works from any origin (no localhost allowlist, see elevenlabs-js issue #320).
 
 ## Develop
 

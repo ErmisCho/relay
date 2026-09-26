@@ -86,6 +86,40 @@ describe("traceReducer", () => {
     expect(st.taskOrder).toEqual(["t1"]);
   });
 
+  it("a re-proposal of a dropped proposal id is pending again (review M5)", () => {
+    // Catches: the thread keeping state "dropped" + dropReason when the same proposal_id is
+    // proposed again, so the new read-back vanished from the thinking panel.
+    seq = 0;
+    const st = fold([
+      ev("proposal", proposal),
+      ev("assent", { proposal_id: "p1", turn_id: "u1", label: "hedge", utterance: "sure, I guess" }),
+      ev("proposal_dropped", { proposal_id: "p1", reason: "not_affirmative" }),
+      ev("proposal", { ...proposal, readback: "Just to confirm, take two. Should I start on it?" }),
+    ]);
+    expect(st.threads.p1.state).toBe("awaiting_assent");
+    expect(st.threads.p1.dropReason).toBeUndefined();
+    expect(pendingProposal(st)?.proposal.readback).toBe("Just to confirm, take two. Should I start on it?");
+    const yes = fold([ev("assent", { proposal_id: "p1", turn_id: "u2", label: "affirmative", utterance: "yes" })], st);
+    expect(yes.threads.p1.state).toBe("assented");
+    expect(yes.threads.p1.dropReason).toBeUndefined();
+  });
+
+  it("a finished task keeps its terminal status against a late or stale frame", () => {
+    // Catches: failed and succeeded sharing a rank, so a late `failed` overwrote `succeeded`
+    // (and vice versa) on the task card.
+    seq = 0;
+    const st = fold([
+      ev("proposal", proposal),
+      ev("assent", { proposal_id: "p1", turn_id: "u2", label: "affirmative", utterance: "yes" }),
+      ev("dispatch", dispatch),
+      ev("task_status", { task_id: "t1", status: "succeeded" }),
+      ev("task_status", { task_id: "t1", status: "failed", error: "late" }),
+      ev("task_status", { task_id: "t1", status: "running" }),
+    ]);
+    expect(st.tasks.t1.status).toBe("succeeded");
+    expect(st.tasks.t1.error ?? null).toBeNull();
+  });
+
   it("ignores events of another session", () => {
     seq = 0;
     const st = fold([ev("user_turn", { turn_id: "u1", text: "hi", channel: "text" }, "other-session")]);
