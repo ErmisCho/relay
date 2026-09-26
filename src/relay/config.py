@@ -118,6 +118,8 @@ class Settings(BaseSettings):
     enabled_kinds: Annotated[list[str], NoDecode] = ["research"]
     artifacts_dir: str = "./artifacts"
     executor_url: str = "http://localhost:8001"
+    # Each idea gets its own project folder under this root; must be outside the relay repo.
+    executor_projects_root: str = "~/relay-projects"
 
     # --- Client ----------------------------------------------------------------------------
     wake_model: str = "hey_jarvis"

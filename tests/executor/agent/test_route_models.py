@@ -7,7 +7,7 @@ from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 
 from relay.config import Settings
-from relay.executor.research.agent import build_route_models, route_model_refs
+from relay.executor.agent.agent import build_route_models, route_model_refs
 
 
 def _settings(**overrides: object) -> Settings:

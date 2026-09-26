@@ -78,7 +78,7 @@ def start_research_worker(
 ) -> ResearchWorker:
     """Start a worker; unless live, with stub models/router and ``stub_env`` in its env."""
     live = os.environ.get("RELAY_LIVE_RESEARCH") == "1"
-    modules = "" if live else "tests.executor.research.stub_models"
+    modules = "" if live else "tests.executor.agent.stub_models"
     extra = {} if live else {"RELAY_RESEARCH_TIMEOUT_S": str(stub_timeout_s), **(stub_env or {})}
     w = ResearchWorker(exec_db_url, tmp_path_factory.mktemp("research"), modules, extra)
     w.start()

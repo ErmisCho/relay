@@ -19,8 +19,8 @@ from sqlalchemy import Engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from relay.executor.dispatch import start_task
+from tests.executor.agent.conftest import ResearchWorker
 from tests.executor.conftest import Seed, task_row, wait_for
-from tests.executor.research.conftest import ResearchWorker
 
 # Signs of the excluded topic (recipes / baking instructions) in the brief body.
 EXCLUDED = re.compile(

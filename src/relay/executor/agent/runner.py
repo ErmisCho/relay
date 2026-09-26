@@ -1,13 +1,17 @@
-"""The durable ``research`` runner: route step, agent child workflow, idempotent render step.
+"""The durable executor runner: route step, workspace step, agent child workflow, render step.
 
-Routing (TASK-46): before any research, the task is classified easy/hard ONCE by a DBOS step
+Routing (TASK-46): before any work, the task is classified easy/hard ONCE by a DBOS step
 (``relay.research.route``), so a crash or replay reuses the recorded decision instead of asking
 the router again; a second step (``relay.research.record_route``) logs it to
 ``router_decisions`` at most once per task. Routing only picks the model.
+
+DBOS workflow and step names (``relay.research.*``) are persisted in DBOS history, so they keep
+their pre-rename values.
 """
 
 from __future__ import annotations
 
+import importlib
 import os
 import tempfile
 import uuid
@@ -23,26 +27,27 @@ from sqlalchemy import text as sa_text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from relay.config import get_settings
-from relay.executor.research.agent import (
+from relay.executor.agent.agent import (
+    ExecutorDeps,
     ResearchBrief,
     build_prompt,
-    get_research_agent,
+    get_executor_agent,
     route_model_refs,
 )
 from relay.executor.routing import route_task
 from relay.executor.runners import ArtifactSpec, TaskContext, register_runner
 from relay.executor.workflows import db_step, engine
-from relay.store.models import RouterDecision
+from relay.store.models import Idea, RouterDecision
 
 WORKFLOW_NAME = "relay.research.run"
 REQUEST_LIMIT = 30
-# Wall-clock bound for one research run (the agent child workflow). DBOS persists the deadline,
+# Wall-clock bound for one executor run (the agent child workflow). DBOS persists the deadline,
 # so it also holds across a crash and recovery; the run is cancelled at its next step boundary.
 TIMEOUT_ENV = "RELAY_RESEARCH_TIMEOUT_S"
 DEFAULT_TIMEOUT_S = 20 * 60
 
 
-def research_timeout_s() -> float:
+def executor_timeout_s() -> float:
     return float(os.environ.get(TIMEOUT_ENV) or DEFAULT_TIMEOUT_S)
 
 
@@ -97,6 +102,18 @@ def record_route_step(task_id: str, route: dict[str, Any]) -> dict[str, Any]:
     return {**route, "difficulty": difficulty, "model_chosen": model_chosen}
 
 
+@DBOS.step(name="relay.executor.workspace")
+def workspace_step(idea_id: str) -> str:
+    """The idea's project folder (created if missing); recorded, so a replay reuses it."""
+    # Resolved at call time, not import time, so tests can install a stub
+    # `relay.executor.workspace` before the first run.
+    workspace = importlib.import_module("relay.executor.workspace")
+    iid = uuid.UUID(idea_id)
+    with engine().connect() as c:
+        title = c.execute(select(Idea.title).where(Idea.id == iid)).scalar_one()
+    return str(workspace.project_dir(iid, title, get_settings()))
+
+
 def served_model_name(message: ModelResponse) -> str:
     """``<provider>:<model>`` as reported by the response (just the model if no provider)."""
     return (
@@ -107,22 +124,27 @@ def served_model_name(message: ModelResponse) -> str:
 
 
 @DBOS.workflow(name=WORKFLOW_NAME)
-def research_workflow(goal: str, scope_excludes: str, route: str | None = None) -> dict[str, Any]:
-    """Run the research agent; each model request / tool call is a checkpointed DBOS step.
+def executor_workflow(
+    goal: str, scope_excludes: str, route: str | None = None, workspace: str | None = None
+) -> dict[str, Any]:
+    """Run the executor agent; each model request / tool call is a checkpointed DBOS step.
 
     ``route`` (``easy``/``hard``) picks the model registered for it; None runs the agent's
-    default model (workflows recorded before routing existed recover that way).
+    default model (workflows recorded before routing existed recover that way). ``workspace``
+    roots the file tools and the shell; None (pre-executor workflows) uses a fresh temp folder.
     Returns the brief as JSON-able data (stable across pickling and library upgrades) plus
     ``served_by``: the concrete model that answered each request (primary or fallback).
     """
-    result = get_research_agent().run_sync(
+    folder = Path(workspace) if workspace else Path(tempfile.mkdtemp(prefix="relay-executor-"))
+    result = get_executor_agent().run_sync(
         build_prompt(goal, scope_excludes),
         model=route,
+        deps=ExecutorDeps(workspace=folder),
         usage_limits=UsageLimits(request_limit=REQUEST_LIMIT),
     )
     responses = [m for m in result.all_messages() if isinstance(m, ModelResponse)]
     served_by = [m.model_name for m in responses]
-    DBOS.logger.info(f"research {DBOS.workflow_id}: model requests served by {served_by}")
+    DBOS.logger.info(f"executor {DBOS.workflow_id}: model requests served by {served_by}")
     served_model = served_model_name(responses[-1]) if responses else None
     return {
         **result.output.model_dump(mode="json"),
@@ -171,23 +193,24 @@ def render_step(artifacts_dir: str, idea_id: str, task_id: str, brief: dict[str,
     return path.as_uri()
 
 
-def run_research(ctx: TaskContext) -> ArtifactSpec:
+def run_executor_task(ctx: TaskContext) -> ArtifactSpec:
     """Durable runner (called from the ``run_task`` workflow body): steps + child workflow."""
     route = record_route_step(str(ctx.task_id), route_step(ctx.goal, ctx.scope_excludes))
     DBOS.logger.info(
-        f"research task {ctx.task_id}: routed {route['difficulty']} "
+        f"{ctx.kind} task {ctx.task_id}: routed {route['difficulty']} "
         f"(router {route['status']}, {route['latency_ms']} ms) -> {route['model_chosen']}"
         f"{' then ' + route['fallback_model'] if route['fallback_model'] else ''}"
     )
-    timeout_s = research_timeout_s()
+    workspace = workspace_step(str(ctx.idea_id))
+    timeout_s = executor_timeout_s()
     try:
         with SetWorkflowTimeout(timeout_s):
-            brief = research_workflow(ctx.goal, ctx.scope_excludes, route["difficulty"])
+            brief = executor_workflow(ctx.goal, ctx.scope_excludes, route["difficulty"], workspace)
     except DBOSAwaitedWorkflowCancelledError as exc:
-        raise TimeoutError(f"research did not finish within {timeout_s:g} s") from exc
+        raise TimeoutError(f"{ctx.kind} did not finish within {timeout_s:g} s") from exc
     url = render_step(ctx.artifacts_dir, str(ctx.idea_id), str(ctx.task_id), brief)
     served_model = brief.get("served_model")
-    DBOS.logger.info(f"research task {ctx.task_id}: served by {served_model}")
+    DBOS.logger.info(f"{ctx.kind} task {ctx.task_id}: served by {served_model}")
     return ArtifactSpec(
         kind="document",
         url=url,
@@ -196,4 +219,4 @@ def run_research(ctx: TaskContext) -> ArtifactSpec:
     )
 
 
-register_runner("research", run_research, durable=True)
+register_runner("research", run_executor_task, durable=True)

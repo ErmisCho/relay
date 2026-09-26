@@ -4,9 +4,9 @@ A runner module registers itself at import time::
 
     from relay.executor.runners import ArtifactSpec, TaskContext, register_runner
 
-    async def run_research(ctx: TaskContext) -> ArtifactSpec: ...
+    async def run_my_kind(ctx: TaskContext) -> ArtifactSpec: ...
 
-    register_runner("research", run_research)
+    register_runner("my_kind", run_my_kind)
 
 The worker imports every module listed in ``BUILTIN_RUNNER_MODULES`` plus the
 comma-separated ``EXECUTOR_RUNNER_MODULES`` environment variable before DBOS launches.
@@ -30,7 +30,7 @@ from dataclasses import dataclass
 
 TASK_RUNNER_MODULES_ENV = "EXECUTOR_RUNNER_MODULES"
 # Built-in runner modules, imported by every worker before any EXECUTOR_RUNNER_MODULES.
-BUILTIN_RUNNER_MODULES: tuple[str, ...] = ("relay.executor.research",)
+BUILTIN_RUNNER_MODULES: tuple[str, ...] = ("relay.executor.agent",)
 
 
 @dataclass(frozen=True)

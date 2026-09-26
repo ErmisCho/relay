@@ -13,9 +13,9 @@ from sqlalchemy import Engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from relay.executor.dispatch import start_task
+from tests.executor.agent.conftest import ResearchWorker
+from tests.executor.agent.stub_models import STUB_BODY, STUB_SOURCES, STUB_TITLE
 from tests.executor.conftest import Seed, task_row, wait_for
-from tests.executor.research.conftest import ResearchWorker
-from tests.executor.research.stub_models import STUB_BODY, STUB_SOURCES, STUB_TITLE
 
 Db = async_sessionmaker[AsyncSession]
 
@@ -103,7 +103,11 @@ async def test_research_commitment_writes_markdown_document(
             .all()
         )
     assert steps.count("relay_research__model.request") == 2, steps
-    assert "relay.research.fetch_url" in steps, steps
+    assert "relay_research__dynamic_toolset__executor.call_tool" in steps, steps
+    # The harness fetch really ran (not an unknown-tool retry); test_tools pins the refusal.
+    fetches = (worker.flag_dir / "fetch_results.jsonl").read_text().splitlines()
+    fetched = [json.loads(ln)["result"] for ln in fetches if "e2e-doc" in ln]
+    assert fetched and "Unknown tool" not in fetched[0], fetched
     # The routing decision is a step of the task workflow itself, recorded before research.
     with sync_engine.connect() as c:
         task_steps: list[str] = list(

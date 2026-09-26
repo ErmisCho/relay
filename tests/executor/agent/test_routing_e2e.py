@@ -17,8 +17,8 @@ from sqlalchemy import Engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from relay.executor.dispatch import start_task
+from tests.executor.agent.conftest import ResearchWorker, start_research_worker
 from tests.executor.conftest import Seed, task_row, wait_for
-from tests.executor.research.conftest import ResearchWorker, start_research_worker
 
 Db = async_sessionmaker[AsyncSession]
 

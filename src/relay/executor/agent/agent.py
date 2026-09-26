@@ -1,9 +1,15 @@
-"""The research agent: a Pydantic AI ``Agent`` made durable with DBOS.
+"""The executor agent: one Pydantic AI ``Agent`` that researches and codes, made durable with DBOS.
 
-Durability uses the ``DBOSDurability`` capability (pydantic-ai 2.51 deprecates the
-``DBOSAgent`` wrapper in its favour): every model request is a DBOS step when the agent runs
-inside a DBOS workflow (``relay.research.run`` in ``runner.py``), and the tools checkpoint
-themselves as DBOS steps (see ``tools.py``).
+Tools come from pydantic-ai-harness instead of being hand-rolled: ``Researcher`` (web search +
+SSRF-safe web fetch) and the ``Coder`` capability set (file tools, shell) rooted
+in the per-idea project folder the run receives as ``ExecutorDeps.workspace``.
+
+Durability uses the ``DBOSDurability`` capability: every model request is a DBOS step when the
+agent runs inside a DBOS workflow (``relay.research.run`` in ``runner.py``). DBOS only wraps
+MCP and *dynamic* toolsets in steps, so all harness tools are contributed through ONE
+``DynamicCapability`` (id ``executor``): its tool listing and every tool call run as DBOS steps,
+and it is built per run, which is also what roots the file tools and the shell in that run's
+own project folder.
 
 Difficulty routing (TASK-46): the one agent carries a model per route, registered with
 ``DBOSDurability(models=...)`` under the keys ``easy`` and ``hard``, and each run picks one by
@@ -18,26 +24,34 @@ import logging
 import os
 import threading
 from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
 
 import httpx2
 from pydantic import BaseModel, Field, HttpUrl
-from pydantic_ai import Agent
+from pydantic_ai import Agent, RunContext
+from pydantic_ai.capabilities import AbstractCapability, CombinedCapability, DynamicCapability
 from pydantic_ai.durable_exec.dbos import DBOSDurability
 from pydantic_ai.models import Model
 from pydantic_ai.models.fallback import FallbackModel
+from pydantic_ai_harness import Researcher
+from pydantic_ai_harness.coder import Coder
+from pydantic_ai_harness.shell import LLM_API_KEY_ENV_PATTERNS, Shell
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from relay.config import Settings, get_settings, parse_model_ref
-from relay.executor.research.tools import fetch_url, web_search
 from relay.executor.routing import LABELS, Difficulty
 
 log = logging.getLogger(__name__)
 
+# Persisted in DBOS step names (`relay_research__model.request`): kept across the rename.
 AGENT_NAME = "relay_research"
+# Id of the per-run dynamic toolset; also persisted in DBOS step names.
+TOOLSET_ID = "executor"
 # A route is a router difficulty; it is also the model's key in the DBOSDurability registry.
 Route = Difficulty
 ROUTES: tuple[Route, ...] = LABELS
-# Reasoning effort for `openai:` research models. Research quality matters more than latency
+# Reasoning effort for `openai:` executor models. Research quality matters more than latency
 # (a run takes minutes; a reasoning pass per request is cheap next to that), so this keeps
 # OpenAI's own default for gpt-6-luna, "medium", but pins it so a provider default change is
 # not silent. "none" is what the voice path uses; "default" omits the parameter.
@@ -48,12 +62,38 @@ MODEL_TIMEOUT = httpx2.Timeout(120.0, connect=5.0)  # openai/anthropic SDKs are 
 # FallbackModel is the retry: an SDK retry loop would only delay switching to the fallback.
 MODEL_MAX_RETRIES = 0
 
+# The shell gets an explicit environment instead of inheriting the worker's, which carries
+# DATABASE_URL, DELEGATOR_SHARED_SECRET, ELEVENLABS_* and provider keys.
+SHELL_ENV_KEYS: tuple[str, ...] = ("PATH", "HOME", "LANG", "TMPDIR")
+# Stripped even from the explicit env above, in case SHELL_ENV_KEYS is ever widened.
+SHELL_DENIED_ENV_PATTERNS: tuple[str, ...] = (
+    *LLM_API_KEY_ENV_PATTERNS,
+    "DATABASE_URL",
+    "DBOS_*",
+    "DELEGATOR_*",
+    "ELEVENLABS_*",
+    "*_API_KEY",
+    "*_SECRET",
+    "*_TOKEN",
+)
+# CLIs whose whole job is publishing (opening/merging PRs, posting issues) with stored tokens.
+# Not a boundary: the shell is otherwise unrestricted, and `git push` through a credential
+# helper still works. Revisit with an OS sandbox when the code runner (TASK-33) lands.
+SHELL_DENIED_COMMANDS: tuple[str, ...] = ("gh", "glab")
+
 # pydantic-ai prints a multi-line "observability" banner on first run; keep worker logs clean.
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
 
+@dataclass(frozen=True)
+class ExecutorDeps:
+    """Per-run dependencies: the idea's project folder, root of the file tools and shell."""
+
+    workspace: Path
+
+
 class ResearchBrief(BaseModel):
-    """The agent's structured output, rendered to Markdown by the runner."""
+    """The agent's structured output for research tasks, rendered to Markdown by the runner."""
 
     title: str = Field(min_length=1, description="Short document title, no Markdown.")
     summary: str = Field(min_length=1, description="Two or three plain sentences.")
@@ -64,15 +104,16 @@ class ResearchBrief(BaseModel):
 
 
 INSTRUCTIONS = """\
-You are relay's research and writing executor. You produce ONE written brief for the user to
-review later. You never send, post, book, buy or publish anything; you only read the web.
+You are relay's executor. You produce ONE result for the user to review later. You never send,
+post, book, buy, publish, push or merge anything: no git push, no pull requests, no messages.
 
 Method:
-1. Use web_search to find relevant, reputable pages, then fetch_url to read the best ones.
-2. Write the brief from what you actually read. Do not invent facts, figures or URLs.
-3. Stay strictly inside the goal. The "Out of scope" text is binding: do not research,
+1. Use web_search to find relevant, reputable pages, then web_fetch to read the best ones.
+2. Your working folder is this idea's project folder; keep any files you write inside it.
+3. Write the result from what you actually read. Do not invent facts, figures or URLs.
+4. Stay strictly inside the goal. The "Out of scope" text is binding: do not research,
    discuss, recommend or even mention anything it excludes.
-4. List in `sources` only URLs you fetched or that search results showed and you relied on.
+5. List in `sources` only URLs you fetched or that search results showed and you relied on.
    Do not put a Sources section inside body_markdown; it is added automatically.
 """
 
@@ -83,10 +124,52 @@ def build_prompt(goal: str, scope_excludes: str) -> str:
     return f"Goal:\n{goal}\n\nOut of scope (must be respected):\n{excludes}\n"
 
 
-class _ResearchLLMEnv(BaseSettings):
-    """Research knobs not in ``relay.config.Settings``; read from the env and ``.env``.
+def shell_env() -> dict[str, str]:
+    """The shell's whole environment: ``SHELL_ENV_KEYS`` copied from the worker, nothing else."""
+    return {k: os.environ[k] for k in SHELL_ENV_KEYS if k in os.environ}
 
-    ``RESEARCH_REASONING_EFFORT``: reasoning effort sent to ``openai:`` research models
+
+def workspace_capabilities(workspace: Path) -> list[AbstractCapability[ExecutorDeps]]:
+    """Researcher + the Coder set, rooted in ``workspace``, with a scrubbed shell environment.
+
+    ``Coder`` has no shell ``env`` parameter, so its ``Shell`` is swapped for one with an
+    explicit env; the rest of its set (workspace-scoped file tools, context management) is
+    kept as is. No unrestricted filesystem: file tools stay in ``workspace``.
+    """
+    root = workspace.resolve()
+    shell = Shell[ExecutorDeps](
+        cwd=root,
+        denied_commands=SHELL_DENIED_COMMANDS,
+        allow_interactive=True,
+        env=shell_env(),
+        denied_env_patterns=SHELL_DENIED_ENV_PATTERNS,
+        tools=["shell"],
+    )
+    # No RepoContext: it turns every model request into a streamed one (measured with harness
+    # 0.36), which changes the durable step names and the model contract. A fresh project
+    # folder has no CLAUDE.md/AGENTS.md to load anyway; revisit when the code runner (TASK-33)
+    # works inside existing repositories.
+    coder = Coder[ExecutorDeps](root, repo_context=False, sub_agents=False)
+    coding = [shell if isinstance(c, Shell) else c for c in coder.capabilities]
+    # Sub-agents off: local models are slow and every delegation multiplies model calls, so
+    # one agent does all the reading. Re-enable when a frontier model is the default executor
+    # model.
+    return [Researcher[ExecutorDeps](subagents=[]), *coding]
+
+
+def _run_capabilities(ctx: RunContext[ExecutorDeps]) -> AbstractCapability[ExecutorDeps]:
+    return CombinedCapability(workspace_capabilities(ctx.deps.workspace))
+
+
+def executor_capability() -> DynamicCapability[ExecutorDeps]:
+    """All harness tools as one per-run dynamic capability (a DBOS-wrapped toolset)."""
+    return DynamicCapability(_run_capabilities, id=TOOLSET_ID)
+
+
+class _ExecutorLLMEnv(BaseSettings):
+    """Executor knobs not in ``relay.config.Settings``; read from the env and ``.env``.
+
+    ``RESEARCH_REASONING_EFFORT``: reasoning effort sent to ``openai:`` executor models
     (gpt-6-luna accepts none|low|medium|high|xhigh; default ``medium``; ``default`` omits it).
     """
 
@@ -95,9 +178,9 @@ class _ResearchLLMEnv(BaseSettings):
     research_reasoning_effort: str = DEFAULT_OPENAI_REASONING_EFFORT
 
 
-def research_reasoning_effort() -> str | None:
-    """The reasoning effort for ``openai:`` research models; None = provider default."""
-    value = _ResearchLLMEnv().research_reasoning_effort.strip().lower()
+def reasoning_effort() -> str | None:
+    """The reasoning effort for ``openai:`` executor models; None = provider default."""
+    value = _ExecutorLLMEnv().research_reasoning_effort.strip().lower()
     return None if value in _PROVIDER_DEFAULT_EFFORTS else value
 
 
@@ -134,7 +217,7 @@ def build_model_from_ref(ref: str, settings: Settings) -> Model:
         # pydantic-ai's OpenAI profile knows gpt-6-luna as a reasoning model (drops sampling
         # params while reasoning is on).
         model_settings = OpenAIResponsesModelSettings()
-        if (effort := research_reasoning_effort()) is not None:
+        if (effort := reasoning_effort()) is not None:
             model_settings["openai_reasoning_effort"] = effort  # type: ignore[typeddict-item]
         return OpenAIResponsesModel(
             name, provider=OpenAIProvider(openai_client=openai_client), settings=model_settings
@@ -149,7 +232,7 @@ def build_model_from_ref(ref: str, settings: Settings) -> Model:
     return AnthropicModel(name, provider=AnthropicProvider(anthropic_client=anthropic_client))
 
 
-def build_research_model(settings: Settings | None = None) -> FallbackModel:
+def build_executor_model(settings: Settings | None = None) -> FallbackModel:
     """``research_model`` with ``research_fallback_model`` behind it (on any ModelAPIError)."""
     s = settings or get_settings()
     return FallbackModel(
@@ -196,33 +279,36 @@ def build_route_models(settings: Settings | None = None) -> dict[Route, Model]:
             if fallback is None:
                 raise
             log.warning(
-                "research %s model %s unavailable (%s); using %s", route, primary, exc, fallback
+                "executor %s model %s unavailable (%s); using %s", route, primary, exc, fallback
             )
             models[route] = build_model_from_ref(fallback, s)
     return models
 
 
-def build_research_agent(
+def build_executor_agent(
     model: Model, routes: Mapping[Route, Model] | None = None
-) -> Agent[None, ResearchBrief]:
+) -> Agent[ExecutorDeps, ResearchBrief]:
     return Agent(
         model,
         name=AGENT_NAME,
+        deps_type=ExecutorDeps,
         output_type=ResearchBrief,
         instructions=INSTRUCTIONS,
-        tools=[web_search, fetch_url],
-        capabilities=[DBOSDurability(models={str(k): m for k, m in (routes or {}).items()})],
+        capabilities=[
+            executor_capability(),
+            DBOSDurability(models={str(k): m for k, m in (routes or {}).items()}),
+        ],
         retries=2,
     )
 
 
-_agent: Agent[None, ResearchBrief] | None = None
+_agent: Agent[ExecutorDeps, ResearchBrief] | None = None
 _lock = threading.Lock()
 
 
-def configure_research_agent(
+def configure_executor_agent(
     model: Model | None = None, routes: Mapping[Route, Model] | None = None
-) -> Agent[None, ResearchBrief]:
+) -> Agent[ExecutorDeps, ResearchBrief]:
     """(Re)build the process-wide agent, e.g. with test models before DBOS launches.
 
     ``model`` serves runs without a route; ``routes`` maps ``easy``/``hard`` to their models.
@@ -230,16 +316,16 @@ def configure_research_agent(
     """
     global _agent
     with _lock:
-        _agent = build_research_agent(
-            model if model is not None else build_research_model(),
+        _agent = build_executor_agent(
+            model if model is not None else build_executor_model(),
             routes if routes is not None else build_route_models(),
         )
         return _agent
 
 
-def get_research_agent() -> Agent[None, ResearchBrief]:
+def get_executor_agent() -> Agent[ExecutorDeps, ResearchBrief]:
     """The configured agent, built lazily from settings on first use."""
     with _lock:
         if _agent is not None:
             return _agent
-    return configure_research_agent()
+    return configure_executor_agent()
