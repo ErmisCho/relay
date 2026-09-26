@@ -5,6 +5,7 @@ Deliberate scope expansion beyond SPEC.md's two verticals (TASK-48).
 
 from __future__ import annotations
 
+import subprocess
 import uuid
 
 import httpx
@@ -56,6 +57,31 @@ async def test_hardware_tool_degrades_when_memory_unreadable(
     monkeypatch.setattr(hardware_module, "total_memory_bytes", lambda: None)
     result = await HardwareCapabilitiesTool()({}, _ctx(dead_db))
     assert "can't read its memory" in result.content
+
+
+async def test_macos_hardware_uses_sysctl_when_posix_memory_keys_are_unavailable(
+    monkeypatch: pytest.MonkeyPatch, dead_db: async_sessionmaker[AsyncSession]
+) -> None:
+    """Darwin can lack SC_PHYS_PAGES and report only 'arm' through platform.processor."""
+    monkeypatch.setattr(hardware_module.sys, "platform", "darwin")
+    monkeypatch.setattr(hardware_module.platform, "processor", lambda: "arm")
+
+    def unsupported_sysconf(key: str) -> int:
+        raise ValueError("unrecognized configuration name")
+
+    def sysctl(command: list[str], **kwargs: object) -> str:
+        assert command[:2] == ["/usr/sbin/sysctl", "-n"]
+        assert kwargs.get("timeout") is not None
+        return {
+            "hw.memsize": str(64 * 1024**3),
+            "machdep.cpu.brand_string": "Apple M4 Pro",
+        }[command[2]]
+
+    monkeypatch.setattr(hardware_module.os, "sysconf", unsupported_sysconf)
+    monkeypatch.setattr(subprocess, "check_output", sysctl)
+    result = await HardwareCapabilitiesTool()({}, _ctx(dead_db))
+    assert "Apple M4 Pro" in result.content
+    assert "64 GB" in result.content
 
 
 # ---- get_weather ------------------------------------------------------------

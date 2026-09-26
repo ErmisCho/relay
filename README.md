@@ -48,3 +48,25 @@ server with `TEST_DATABASE_URL`. `uv run alembic downgrade base` removes the sch
 | `uv run ruff format .` | Format with Ruff |
 | `uv run mypy src` | Type-check |
 | `uv run pytest` | Run tests with pytest |
+
+## Check a local hardware question
+
+On the machine running Relay and Ollama, after setting the local model names in `.env`:
+
+```bash
+RELAY_LLM_TESTS=1 uv run pytest tests/delegator/test_live_ollama.py -k hardware -q -s
+```
+
+This check sends a typed specs question through the real configured local model,
+the production tool registry and HTTP response code. It fails if the model does not
+call `hardware_capabilities` or does not report the observed chip and RAM. It does
+not require ElevenLabs or Postgres, and does not test the microphone/TTS path.
+The probe describes the **backend host**, not a separate voice-client device.
+GPU and storage details are not currently collected.
+
+When testing the running service, look in `delegator.log` for
+`executing internal tool hardware_capabilities` and its completion timing. A
+`timed out` context message means optional persistence/report retrieval was skipped
+to keep the response moving. `no text or tool calls` means the model returned an
+empty answer; Relay now retries through its fallback and speaks an error if that
+also fails. Neither case proves a successful hardware answer: run the check above.

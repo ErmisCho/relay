@@ -20,6 +20,16 @@ FIRST_DELTA_TIMEOUT_S = 5.0
 SAME_MODEL_FIRST_DELTA_TIMEOUT_S = 30.0
 
 
+async def _first_usable_delta(stream: AsyncIterator[ChatDelta]) -> ChatDelta:
+    """A finish marker alone is not an answer (for example reasoning token exhaustion)."""
+    finish_reason: str | None = None
+    async for delta in stream:
+        if (delta.content and delta.content.strip()) or delta.tool_calls:
+            return delta
+        finish_reason = delta.finish_reason or finish_reason
+    raise RuntimeError(f"Model returned no text or tool calls (finish_reason={finish_reason})")
+
+
 class FallbackChatModel:
     """Try ``primary``; if it fails or stalls before its first delta, serve from ``fallback``.
 
@@ -66,9 +76,7 @@ class FallbackChatModel:
         primary = self.primary.stream(messages, tools, **kwargs)
         try:
             async with asyncio.timeout(self.first_delta_timeout):
-                first = await anext(primary)
-        except StopAsyncIteration:
-            return
+                first = await _first_usable_delta(primary)
         except Exception:  # includes TimeoutError from the first-delta deadline
             log.warning(
                 "primary model %s failed before its first delta; falling back to %s",
@@ -87,5 +95,14 @@ class FallbackChatModel:
             async for delta in primary:
                 yield replace(delta, model=delta.model or self.primary.model_name)
             return
-        async for delta in self.fallback.stream(messages, tools, **kwargs):
-            yield replace(delta, model=delta.model or self.fallback.model_name)
+        fallback = self.fallback.stream(messages, tools, **kwargs)
+        try:
+            async with asyncio.timeout(self.first_delta_timeout):
+                first = await _first_usable_delta(fallback)
+            yield replace(first, model=first.model or self.fallback.model_name)
+            async for delta in fallback:
+                yield replace(delta, model=delta.model or self.fallback.model_name)
+        finally:
+            aclose = getattr(fallback, "aclose", None)
+            if aclose is not None:
+                await aclose()
