@@ -12,6 +12,11 @@ uv sync --extra dev
 
 Requires [uv](https://docs.astral.sh/uv/) and Docker.
 
+One command that does all of the below and then runs the Delegator + executor:
+`./scripts/dev-up.sh` (macOS/Linux) or `.\scripts\dev-up.ps1` (Windows).
+
+Manual steps, if you'd rather run them yourself:
+
 ```bash
 uv sync --extra dev               # install runtime + dev dependencies
 cp .env.example .env              # settings (local Ollama models by default)
