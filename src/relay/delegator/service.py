@@ -657,11 +657,13 @@ class DelegatorService:
                     getattr(self.registry.get(call.name), "direct_response", False)
                     for call in internal
                 ) and all(not result.startswith("Error:") for result in results):
-                    for result in results:
+                    for i, result in enumerate(results):
                         if turn.first_token_at is None:
                             turn.first_token_at = time.perf_counter()
-                        turn.text_parts.append(result)
-                        yield result
+                        # A space between answers, or TTS reads "…Instruct.Based on…".
+                        text = result if i == 0 else f" {result}"
+                        turn.text_parts.append(text)
+                        yield text
                     return
                 messages.extend(
                     {"role": "tool", "tool_call_id": call.id, "content": result}

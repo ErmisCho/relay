@@ -178,6 +178,33 @@ async def test_same_round_tools_run_concurrently_and_keep_order_on_failure(
     assert "second failed internally" in results[1]["content"]
 
 
+@dataclass
+class DirectTool(CoordinatedTool):
+    direct_response: bool = True
+
+
+async def test_two_direct_answers_are_spoken_with_a_space_between(
+    dead_db: async_sessionmaker[AsyncSession],
+) -> None:
+    """Compound turn ("specs? and the weather?"): both verbatim answers, not "…first.second"."""
+    started: list[str] = []
+    both = asyncio.Event()
+    model = ScriptedChatModel([two_tool_calls()])
+    app = create_app(
+        make_settings(),
+        chat_model=model,
+        registry=registry_with(
+            DirectTool(name="first", started=started, both_started=both),
+            DirectTool(name="second", started=started, both_started=both),
+        ),
+        hooks=[],
+        sessionmaker=dead_db,
+    )
+    chunks = parse_sse((await post(app, load_request())).content)
+    spoken = "".join(c["choices"][0]["delta"].get("content", "") for c in chunks)
+    assert spoken == "result:first result:second"
+
+
 async def test_invalid_internal_tool_arguments_are_reported_to_the_model(
     dead_db: async_sessionmaker[AsyncSession],
 ) -> None:
