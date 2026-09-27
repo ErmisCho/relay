@@ -17,6 +17,7 @@ from typing import Any
 
 from relay.config import Settings
 from relay.delegator.adapters.openai_compat import content_text
+from relay.delegator.commitment.protocol import RESERVATION_KEY
 from relay.delegator.commitment.readback import normalise
 from relay.delegator.contracts import TurnContext
 
@@ -63,6 +64,19 @@ class VoiceRulesHook:
         question = cut_off_question(ctx.messages, generated)
         if question is None:
             return []
+        started = ctx.state.extra.get(RESERVATION_KEY)
+        if (
+            getattr(started, "status", "cancelled") not in ("cancelled", "failed")
+            and getattr(started, "user_turn_index", None) == ctx.state.user_turn_index - 1
+        ):
+            # The cut-off reply was the "On it" of a direct start: that question IS handled.
+            # Handing it back re-proposed it and dropped the latest message (3/4 live runs).
+            goal = started.proposal.goal  # type: ignore[union-attr]
+            return [
+                "The user cut off your previous reply, but the work for their earlier message is "
+                f'already starting ("{goal}"). Do not propose it again; handle only their '
+                "latest message."
+            ]
         return [
             "The user cut off your previous reply, so this earlier message of theirs is still "
             f'unanswered: "{question}". Handle it together with their latest message: put all '
