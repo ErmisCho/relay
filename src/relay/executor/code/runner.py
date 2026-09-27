@@ -79,8 +79,23 @@ def commit_step(workspace: str, branch: str, base: str, message: str) -> dict[st
     return {"sha": sha, "diffstat": git.diff_stat(folder, base, branch)}
 
 
+def python_test_command(start: str) -> str:
+    """pytest when the sandbox's ``python3`` has it, else stdlib unittest discovery.
+
+    The sandbox has no network, so nothing can be installed, and the system ``python3`` often
+    has no pytest: a stdlib-only project's unittest tests must still run.
+    """
+    return (
+        "if python3 -c 'import pytest' 2>/dev/null; then python3 -m pytest -q; "
+        f"else python3 -m unittest discover -s {start} -v; fi"
+    )
+
+
 def detect_test_command(folder: Path) -> str | None:
-    """The project's test command, conservatively: pytest for Python, ``npm test`` for Node."""
+    """The project's test command, conservatively: ``npm test`` for Node, else Python tests.
+
+    Python needs no packaging file: a script plus ``tests/`` (or ``test_*.py``) is a project.
+    """
     if (folder / "package.json").is_file():
         try:
             scripts = json.loads((folder / "package.json").read_text()).get("scripts") or {}
@@ -88,9 +103,9 @@ def detect_test_command(folder: Path) -> str | None:
             scripts = {}
         if isinstance(scripts, dict) and scripts.get("test"):
             return "npm test --silent"
-    python = any((folder / f).is_file() for f in ("pyproject.toml", "setup.py", "pytest.ini"))
-    has_tests = (folder / "tests").is_dir() or any(folder.glob("test_*.py"))
-    return "python3 -m pytest -q" if python and has_tests else None
+    if (folder / "tests").is_dir() and any((folder / "tests").rglob("test*.py")):
+        return python_test_command("tests")
+    return python_test_command(".") if any(folder.glob("test*.py")) else None
 
 
 @DBOS.step(name="relay.code.run_tests")

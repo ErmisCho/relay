@@ -1,6 +1,6 @@
 # relay
 
-relay is a voice ideation partner. You say a wake word and think out loud with an agent. When an idea is ready, the agent reads back what it would do (the goal, what it leaves out, and what it hands back) and asks you to confirm. Nothing is dispatched until you say an explicit yes to that read-back. The agreed work then runs in the background, and the result is announced at a later turn. v1 covers research and writing only, and the artifact is a Markdown document. Code work that ends in a draft pull request comes later: `ENABLED_KINDS` defaults to `research`. See [`SPEC.md`](SPEC.md) for the product spec.
+relay is a voice ideation partner. You say a wake word and think out loud with an agent. When you plainly tell it to do something ("look into X and write it up", "build me a script that..."), it starts right away and says "On it"; the server, not the voice model, judges that your words were an instruction. When you are still exploring or asking for ideas or its opinion, it starts nothing and just answers. Only if that judgement fails, or with `DIRECT_DISPATCH=0`, does it read back what it would do (the goal, what it leaves out, and what it hands back) and wait for an explicit yes. The agreed work then runs in the background, and the result is announced at a later turn. v1 covers research and writing only, and the artifact is a Markdown document. Code work that ends in a draft pull request comes later: `ENABLED_KINDS` defaults to `research`. See [`SPEC.md`](SPEC.md) for the product spec.
 
 ## Prerequisites
 

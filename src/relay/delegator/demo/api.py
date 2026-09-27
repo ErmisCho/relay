@@ -207,6 +207,45 @@ async def fetch_voice_credentials(settings: Settings) -> dict[str, Any]:
         return {"transport": "websocket", "signed_url": str(resp.json()["signed_url"])}
 
 
+def agent_url_mismatch(agent: dict[str, Any], public_url: str) -> str | None:
+    """Why voice turns would bypass this Delegator, or None when the agent calls it.
+
+    ElevenLabs calls the agent's ``custom_llm.url``; if that is another tunnel (an old one, or a
+    teammate's), voice gets answers from a different Delegator: nothing reaches this server's
+    event feed and nothing is dispatched here, while typed text still works.
+    """
+    prompt = agent.get("conversation_config", {}).get("agent", {}).get("prompt", {})
+    url = str((prompt.get("custom_llm") or {}).get("url") or "")
+    if prompt.get("llm") != "custom-llm" or not url:
+        return "the ElevenLabs agent does not use a custom LLM"
+    if not url.rstrip("/").removesuffix("/v1").startswith(public_url.rstrip("/")):
+        return f"the ElevenLabs agent calls {url}, not DELEGATOR_PUBLIC_URL {public_url}"
+    return None
+
+
+async def check_agent_url(settings: Settings) -> None:
+    """Log a warning when the voice agent would call another Delegator (never raises)."""
+    if not (settings.elevenlabs_api_key and settings.elevenlabs_agent_id):
+        return
+    try:
+        async with httpx.AsyncClient(base_url=ELEVENLABS_API, timeout=10.0) as client:
+            resp = await client.get(
+                f"/v1/convai/agents/{settings.elevenlabs_agent_id}",
+                headers={"xi-api-key": settings.elevenlabs_api_key},
+            )
+            resp.raise_for_status()
+            problem = agent_url_mismatch(resp.json(), settings.delegator_public_url)
+    except Exception as exc:
+        log.warning("demo: could not check the ElevenLabs agent URL: %s", type(exc).__name__)
+        return
+    if problem is not None:
+        log.warning(
+            "demo: VOICE WILL NOT REACH THIS DELEGATOR: %s. Run "
+            "`uv run python scripts/apply_agent_config.py --apply`.",
+            problem,
+        )
+
+
 # --- helpers -------------------------------------------------------------------------------
 
 
@@ -287,6 +326,9 @@ class DemoRuntime:
     # lifecycle
     def start(self) -> None:
         self._poller = asyncio.create_task(self._poll_forever(), name="demo-task-poller")
+        check = asyncio.create_task(check_agent_url(self.settings), name="demo-agent-url")
+        self._background.add(check)
+        check.add_done_callback(self._background.discard)
 
     async def stop(self) -> None:
         tasks = [*self._background, *([self._poller] if self._poller else [])]

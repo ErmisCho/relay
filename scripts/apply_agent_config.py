@@ -113,26 +113,36 @@ def check_apply_settings(settings: Settings) -> None:
         )
 
 
-def _find_secret_id(client: Any) -> str | None:
+def secret_name(settings: Settings) -> str:
+    """The workspace secret for THIS Delegator, keyed by its public host.
+
+    Secrets are workspace-wide: with one fixed name, every developer's ``--apply`` overwrote the
+    others' shared secret, so each agent authenticated with whoever applied last.
+    """
+    host = urlsplit(settings.delegator_public_url).hostname or "local"
+    return f"{SECRET_NAME}_{re.sub(r'[^a-z0-9]+', '_', host.lower()).strip('_')}"
+
+
+def _find_secret_id(client: Any, name: str) -> str | None:
     """Look up the workspace secret by exact name across all result pages."""
     cursor: str | None = None
     while True:
-        page = client.conversational_ai.secrets.list(search=SECRET_NAME, cursor=cursor)
+        page = client.conversational_ai.secrets.list(search=name, cursor=cursor)
         for secret in page.secrets:
-            if secret.name == SECRET_NAME:
+            if secret.name == name:
                 return str(secret.secret_id)
         cursor = page.next_cursor
         if not cursor:
             return None
 
 
-def _ensure_secret(client: Any, value: str) -> str:
-    """Create or update the workspace secret holding the Delegator shared secret."""
-    secret_id = _find_secret_id(client)
+def _ensure_secret(client: Any, name: str, value: str) -> str:
+    """Create or update the workspace secret ``name`` holding the Delegator shared secret."""
+    secret_id = _find_secret_id(client, name)
     if secret_id is not None:
-        client.conversational_ai.secrets.update(secret_id, name=SECRET_NAME, value=value)
+        client.conversational_ai.secrets.update(secret_id, name=name, value=value)
         return secret_id
-    created = client.conversational_ai.secrets.create(name=SECRET_NAME, value=value)
+    created = client.conversational_ai.secrets.create(name=name, value=value)
     return str(created.secret_id)
 
 
@@ -144,7 +154,7 @@ def apply(settings: Settings) -> str:
         raise SystemExit("ELEVENLABS_API_KEY is not set")
     check_apply_settings(settings)
     client = ElevenLabs(api_key=settings.elevenlabs_api_key)
-    secret_id = _ensure_secret(client, settings.delegator_shared_secret)
+    secret_id = _ensure_secret(client, secret_name(settings), settings.delegator_shared_secret)
     payload = render(load_template(), placeholder_values(settings, secret_id))
     conversation_config = ConversationalConfig.model_validate(payload["conversation_config"])
     platform_settings = AgentPlatformSettingsRequestModel.model_validate(
