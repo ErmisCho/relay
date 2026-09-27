@@ -138,9 +138,36 @@ async def test_weather_tool_degrades_on_upstream_failure(
     assert "couldn't reach the weather service" in result.content
 
 
-async def test_weather_tool_rejects_empty_location(
+async def test_weather_tool_without_location_uses_ip_and_says_so(
     dead_db: async_sessionmaker[AsyncSession],
 ) -> None:
-    tool = GetWeatherTool()
+    """No place named -> geolocate by IP (never the geocoder), and tell the user that."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert "geocoding-api" not in str(request.url)
+        if "ipwho.is" in str(request.url):
+            return httpx.Response(
+                200, json={"success": True, "city": "Vienna", "latitude": 48.2, "longitude": 16.4}
+            )
+        return httpx.Response(
+            200,
+            json={"current_weather": {"temperature": 14.2, "windspeed": 8.0, "weathercode": 3}},
+        )
+
+    tool = GetWeatherTool(client_factory=_client_factory(handler))
+    result = await tool({}, _ctx(dead_db))
+    assert result.content == (
+        "Based on your IP address you seem to be near Vienna. "
+        "In Vienna it's currently 14°C with overcast, wind 8 km/h."
+    )
+
+
+async def test_weather_tool_asks_for_city_when_ip_lookup_fails(
+    dead_db: async_sessionmaker[AsyncSession],
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"success": False, "message": "reserved range"})
+
+    tool = GetWeatherTool(client_factory=_client_factory(handler))
     result = await tool({"location": "  "}, _ctx(dead_db))
-    assert result.rejected
+    assert "which city" in result.content
