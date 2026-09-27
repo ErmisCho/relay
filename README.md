@@ -8,7 +8,7 @@ relay is a voice ideation partner. You say a wake word and think out loud with a
 |------|-------------|
 | [uv](https://docs.astral.sh/uv/) | Python 3.12+ environment and runner |
 | Docker | Runs Postgres 16. If `docker` is not on your `PATH`, the CLI may be in `~/.docker/bin`. |
-| [Ollama](https://ollama.com) on `localhost:11434` | Local models used by the defaults: `gemma4:e4b` for the Delegator, the assent/ready classifiers and idea summaries, and `qwen3.8:latest` for the executor. The executor routes each task easy or hard: easy tasks run on `gemma4:e4b`, hard tasks on `openai:gpt-6-luna` with `qwen3.8:latest` as the fallback (without `OPENAI_API_KEY`, hard tasks run on `qwen3.8:latest` alone). Pull both with `ollama pull gemma4:e4b` and `ollama pull qwen3.8:latest`. |
+| [Ollama](https://ollama.com) on `localhost:11434` | All defaults are local: `gemma4:e4b` handles conversation, classifiers and easy tasks; `qwen3.8:latest` handles hard tasks with gemma as fallback. Pull both with `ollama pull gemma4:e4b` and `ollama pull qwen3.8:latest`. |
 | ElevenLabs account + API key | Handles STT, VAD, turn-taking and TTS through ElevenLabs Agents. Every voice session uses agent minutes. |
 | [ngrok](https://ngrok.com) with a free dev domain | ElevenLabs calls the Delegator from its own cloud, so the Delegator needs a public URL. |
 | Headset with a microphone | There is no acoustic echo cancellation (see [live voice testing](docs/live-voice-testing.md#echo-gate)). |
@@ -39,7 +39,7 @@ These `.env` keys matter (every setting is in `src/relay/config.py`):
 | `ELEVENLABS_AGENT_ID` | Leave empty until `apply_agent_config.py --apply` prints an id, then paste it here |
 | `*_MODEL` | Model refs of the form `<provider>:<model>`, where the provider is `ollama`, `openai` or `anthropic`. The defaults are all local Ollama models. |
 | `SILENCE_TIMEOUT_S` | Seconds without speech before the client closes a session (default 60) |
-| `OPENAI_API_KEY` | Needed for the default hard-task executor model `openai:gpt-6-luna`. Optional: without it, hard tasks fall back to the local model. |
+| `OPENAI_API_KEY` | Optional only. No paid provider is used by the default configuration. |
 | `EXECUTOR_PROJECTS_ROOT` | Where the executor creates one project folder per idea (default `~/relay-projects`). It must be outside the relay repo; the worker refuses a root inside it, `/` or your home directory itself. |
 
 ## Running
@@ -119,6 +119,14 @@ RELAY_LLM_TESTS=1 uv run pytest -q tests/delegator/test_live_ollama.py tests/del
 RELAY_LLM_TESTS=1 RELAY_LIVE_RESEARCH=1 uv run pytest -q tests/executor/agent/test_live.py
 ```
 
+To verify a hardware question against this host without ElevenLabs or a paid API:
+
+```bash
+RELAY_LLM_TESTS=1 uv run pytest tests/delegator/test_live_ollama.py -k hardware -q -s
+```
+
+The check fails if the local model does not select `hardware_capabilities` or if the answer omits the observed chip or RAM. The tool reports the Relay backend host, which can differ from a remote voice client.
+
 The end-to-end voice checks (latency, barge-in, commitments) are manual. They are listed in [docs/live-voice-testing.md](docs/live-voice-testing.md), including the ordered Phase 1 close-out run. After a live session, audit it from the database (read-only; exit code 1 means an unintended dispatch or a session that never closed):
 
 ```bash
@@ -128,13 +136,13 @@ uv run python scripts/phase1_audit.py --session <uuid> --json audit.json
 
 ## Demo website
 
-`web/` holds a browser demo (Vite + React) that shows the read-back, the assent label, the dispatch and the delivered brief next to the conversation. Today it runs in mock mode only, with a scripted in-browser backend:
+`web/` holds a browser demo (Vite + React) that shows the read-back, assent label, dispatch and delivered brief next to the conversation. The zero-cost hackathon path uses its scripted in-browser backend:
 
 ```bash
 cd web && npm install && npm run dev:mock   # http://localhost:5173, passcode relay-demo
 ```
 
-The real backend is the demo API from TASK-42, which is still being built. See [web/README.md](web/README.md) for details and [web/CONTRACT.md](web/CONTRACT.md) for the API it expects.
+For live mode, build without `--mode mock` and serve it alongside the completed `/demo` API. See [web/README.md](web/README.md) for the service setup and [web/CONTRACT.md](web/CONTRACT.md) for the API contract.
 
 ## Layout
 
@@ -156,7 +164,7 @@ The real backend is the demo API from TASK-42, which is still being built. See [
 | `scripts/apply_agent_config.py` | Renders the agent config and applies it (dry run by default) |
 | `scripts/measure_false_triggers.py` | Wake-word false-trigger measurement (no agent minutes used) |
 | `scripts/phase1_audit.py` | Read-only Phase 1 audit of live sessions |
-| `web/` | Demo website (mock mode until the TASK-42 API exists) |
+| `web/` | Demo website with zero-cost mock mode and the live TASK-42 API client |
 | `tests/` | Unit, contract, database and opt-in live tests |
 
 ## Further reading

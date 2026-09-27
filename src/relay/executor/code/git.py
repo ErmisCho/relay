@@ -5,10 +5,9 @@ The agent's shell has no network, so pushing happens here, in the worker. Two gu
 - :func:`push_branch` pushes exactly one ref, ``refs/heads/<branch>`` to the same name, never
   forced, and refuses anything that is not a ``relay/`` task branch or that is the default
   branch (``main``, ``master``, or whatever ``origin/HEAD`` names). Nothing here merges.
-- The workspace (``.git`` included) is writable by the agent, so commands that execute
-  repository-controlled content (``git add``/``commit`` run hooks and clean filters) run under
-  the same sandbox as the agent's shell. Commands run outside it (reads and the push) disable
-  hooks, fsmonitor and the owner's global/system config.
+- The workspace (``.git`` included) is writable by the agent. Commits use Git plumbing with
+  ``hash-object --no-filters`` and ``commit-tree``, so agent-controlled hooks, clean filters and
+  signing programs never execute. Other commands disable hooks, fsmonitor and owner config.
 """
 
 from __future__ import annotations
@@ -73,6 +72,8 @@ def git(
     env: Mapping[str, str] | None = None,
     prefix: Sequence[str] = (),
     check: bool = True,
+    strip: bool = True,
+    input_text: str | None = None,
 ) -> str:
     """Run git in ``folder`` (under ``prefix``, e.g. a sandbox argv); stdout, stripped."""
     argv = [*prefix, "git", *_HARDENING, *args]
@@ -82,12 +83,13 @@ def git(
         env=dict(env) if env is not None else _env(),
         capture_output=True,
         text=True,
+        input=input_text,
         timeout=120,
         check=False,
     )
     if check and proc.returncode != 0:
         raise GitError(f"git {' '.join(args)} failed ({proc.returncode}): {proc.stderr.strip()}")
-    return proc.stdout.strip()
+    return proc.stdout.strip() if strip else proc.stdout
 
 
 def _ok(folder: Path, *args: str) -> bool:
@@ -146,17 +148,45 @@ def checkout(folder: Path, branch: str) -> dict[str, str]:
     return {"branch": branch, "base": base}
 
 
-def commit_all(
-    folder: Path, branch: str, message: str, sandbox: Sequence[str], sandbox_env: Mapping[str, str]
-) -> str:
-    """Commit everything in the working tree on ``branch`` (sandboxed); returns HEAD's sha."""
+def commit_all(folder: Path, branch: str, message: str) -> str:
+    """Commit the working tree without executing repository-controlled hooks or filters."""
     if current_branch(folder) != branch:
-        git(folder, "checkout", "--quiet", branch)  # the agent switched away; bring the tree back
-    env = {**sandbox_env, "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0"}
-    git(folder, "add", "--all", env=env, prefix=sandbox)
-    if not _ok(folder, "diff", "--cached", "--quiet"):
-        git(folder, *_IDENTITY, "commit", "--quiet", "-m", message, env=env, prefix=sandbox)
-    return git(folder, "rev-parse", "HEAD")
+        raise GitError(f"refusing to commit: expected branch {branch!r}")
+
+    staged = git(folder, "ls-files", "--stage", "-z", strip=False)
+    modes = {
+        path: meta.split()[0]
+        for entry in staged.split("\0")
+        if entry
+        for meta, path in [entry.split("\t", 1)]
+        if meta.split()[2] == "0"
+    }
+    listed = git(
+        folder, "ls-files", "--cached", "--others", "--exclude-standard", "-z", strip=False
+    )
+    for relative in dict.fromkeys(path for path in listed.split("\0") if path):
+        path = folder / relative
+        if not path.exists() and not path.is_symlink():
+            git(folder, "update-index", "--remove", "--", relative)
+            continue
+        if path.is_dir():  # existing submodule entry; its object id is already in the index
+            continue
+        if path.is_symlink():
+            mode = "120000"
+            oid = git(folder, "hash-object", "-w", "--stdin", input_text=os.readlink(path))
+        else:
+            previous = modes.get(relative)
+            mode = previous if previous in {"100644", "100755"} else "100644"
+            oid = git(folder, "hash-object", "-w", "--no-filters", "--", relative)
+        git(folder, "update-index", "--add", "--cacheinfo", mode, oid, relative)
+
+    parent = git(folder, "rev-parse", "HEAD")
+    if _ok(folder, "diff", "--cached", "--quiet"):
+        return parent
+    tree = git(folder, "write-tree")
+    sha = git(folder, *_IDENTITY, "commit-tree", tree, "-p", parent, "-m", message)
+    git(folder, "update-ref", f"refs/heads/{branch}", sha, parent)
+    return sha
 
 
 def diff_stat(folder: Path, base: str, branch: str) -> str:

@@ -37,6 +37,20 @@ def test_push_sends_only_the_task_branch(tmp_path: Path) -> None:
     assert sorted(refs) == ["refs/heads/main", "refs/heads/relay/abcd1234-x"]
 
 
+def test_commit_does_not_execute_repository_filters(tmp_path: Path) -> None:
+    folder = tmp_path / "proj"
+    github_project(folder, tmp_path)
+    branch = "relay/abcd1234-safe"
+    git.checkout(folder, branch)
+    sh(folder, "git", "config", "filter.evil.clean", "false")
+    (folder / ".gitattributes").write_text("*.txt filter=evil\n")
+    (folder / "result.txt").write_text("safe\n")
+
+    git.commit_all(folder, branch, "Safe commit")
+
+    assert git.git(folder, "show", f"{branch}:result.txt") == "safe"
+
+
 def test_code_executor_has_no_merge_capability() -> None:
     """Bug caught: a merge call (REST merge endpoint, `git merge`, auto-merge) creeping in."""
     sources = {p.name: p.read_text() for p in Path(code_pkg.__file__).parent.glob("*.py")}

@@ -6,7 +6,8 @@ import json
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 from dbos import DBOSClient
 from sqlalchemy import Engine, text
@@ -61,7 +62,7 @@ async def test_research_commitment_writes_markdown_document(
     task_id = await _run(db, dbos_client, sync_engine, s)
 
     kind, url, summary = _artifact(sync_engine, task_id)
-    path = Path(unquote(urlsplit(url).path))
+    path = Path(url2pathname(urlsplit(url).path))
     assert kind == "document" and url.startswith("file://")
     assert path == worker.artifacts_dir.resolve() / str(s.idea_id) / f"{task_id}.md"
     doc = path.read_text()
@@ -139,7 +140,7 @@ async def test_primary_model_failure_falls_back_without_failing_task(
     task_id = await _run(db, dbos_client, sync_engine, s)
 
     kind, url, _ = _artifact(sync_engine, task_id)
-    assert kind == "document" and Path(unquote(urlsplit(url).path)).is_file()
+    assert kind == "document" and Path(url2pathname(urlsplit(url).path)).is_file()
     models = [c["model"] for c in _calls(worker, "e2e-fallback")]
     assert models == ["stub-hard", "stub-hard-fallback", "stub-hard", "stub-hard-fallback"]
     # The worker log names the model that actually served each request.

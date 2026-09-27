@@ -62,6 +62,7 @@ async def run_until_signalled(main: Coroutine[Any, Any, None]) -> None:
     loop = asyncio.get_running_loop()
     task = asyncio.ensure_future(main)
     installed: list[signal.Signals] = []
+    fallbacks: dict[signal.Signals, Any] = {}
 
     def request_stop(sig: signal.Signals) -> None:
         if task.cancelling():
@@ -75,7 +76,15 @@ async def run_until_signalled(main: Coroutine[Any, Any, None]) -> None:
             loop.add_signal_handler(sig, request_stop, sig)
             installed.append(sig)
         except (NotImplementedError, RuntimeError):  # Windows / not the main thread
-            pass
+            try:
+                previous = signal.signal(
+                    sig,
+                    lambda *_args, sig=sig: loop.call_soon_threadsafe(request_stop, sig),
+                )
+            except (OSError, ValueError):
+                pass
+            else:
+                fallbacks[sig] = previous
     try:
         await task
     except asyncio.CancelledError:
@@ -84,6 +93,8 @@ async def run_until_signalled(main: Coroutine[Any, Any, None]) -> None:
     finally:
         for sig in installed:
             loop.remove_signal_handler(sig)
+        for sig, previous in fallbacks.items():
+            signal.signal(sig, previous)
 
 
 async def _run(args: argparse.Namespace) -> None:

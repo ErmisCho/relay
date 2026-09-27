@@ -33,6 +33,34 @@ describe("mock scenarios (AC#6 demo scripts)", () => {
     expect(events.map((e) => e.seq)).toEqual(events.map((_, i) => i + 1));
   });
 
+  it("one zero-cost session delivers exactly three explicitly agreed documents", async () => {
+    const api = createMockApi({ reply: 10, start: 10, work: 10 });
+    await api.login(MOCK_PASSCODE);
+    const { session_id } = await api.createSession();
+    const events: RelayEvent[] = [];
+    api.subscribe(session_id, 0, (e) => events.push(e), () => undefined);
+    for (const request of [
+      "Research heat pumps, leave out solar, that's everything.",
+      "Compare standing desks, skip gaming desks, that's everything.",
+      "Write a brief on battery recycling, leave out pricing, that's everything.",
+    ]) {
+      await api.sendMessage(session_id, request);
+      await vi.runAllTimersAsync();
+      await api.sendMessage(session_id, "Yes, go ahead.");
+      await vi.runAllTimersAsync();
+    }
+
+    expect(events.filter((e) => e.type === "assent" && e.data.label === "affirmative")).toHaveLength(3);
+    const dispatches = events.filter((e) => e.type === "dispatch");
+    const delivered = events.filter((e) => e.type === "artifact_delivered");
+    expect(dispatches).toHaveLength(3);
+    expect(delivered).toHaveLength(3);
+    const taskIds = new Set(dispatches.map((e) => e.data.task_id));
+    const tasks = (await api.listTasks()).tasks.filter((task) => taskIds.has(task.id));
+    expect(tasks.every((task) => task.status === "succeeded" && task.artifact_id)).toBe(true);
+    for (const event of delivered) expect((await api.getArtifact(event.data.artifact_id)).markdown).toBeTruthy();
+  });
+
   it("hedge scenario never dispatches", async () => {
     const events = await play("hedge");
     expect(events.find((e) => e.type === "assent")?.data).toMatchObject({ label: "hedge" });

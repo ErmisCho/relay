@@ -8,6 +8,7 @@ Nothing here may break the turn: a failed DB write is logged and the notes are s
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from typing import Any
@@ -29,6 +30,7 @@ from relay.delegator.scope import (
 from relay.store.models import Turn
 
 log = logging.getLogger(__name__)
+REFUSAL_WRITE_TIMEOUT_S = 0.5
 
 
 def refusal_note(hit: OutOfScope) -> str:
@@ -55,6 +57,8 @@ async def record_refusal(
 
 class ScopeHook:
     """``TurnHook`` enforcing the v1 scope boundary; construct with no arguments."""
+
+    safety_critical = True
 
     def system_prefix(self, settings: Settings) -> str:
         """The scope rules are static, so they live in the cached prompt prefix."""
@@ -86,7 +90,10 @@ class ScopeHook:
         )
         if ctx.user_turn_id is not None:
             try:
-                await record_refusal(ctx.db, ctx.user_turn_id, hit.reason)
+                async with asyncio.timeout(REFUSAL_WRITE_TIMEOUT_S):
+                    await record_refusal(ctx.db, ctx.user_turn_id, hit.reason)
+            except TimeoutError:
+                log.warning("scope: recording refusal on turn %s timed out", ctx.user_turn_id)
             except Exception:
                 log.exception("scope: recording refusal on turn %s failed", ctx.user_turn_id)
         return notes

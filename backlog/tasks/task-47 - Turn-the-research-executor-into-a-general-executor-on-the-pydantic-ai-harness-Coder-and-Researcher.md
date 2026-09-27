@@ -3,11 +3,11 @@ id: TASK-47
 title: >-
   Turn the research executor into a general executor on the pydantic-ai-harness
   Coder and Researcher
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-09-26 18:34'
-updated_date: '2026-09-26 18:37'
+updated_date: '2026-09-27 00:34'
 labels:
   - phase-1
   - executor
@@ -31,12 +31,12 @@ Owner decision (2026-09-26): the research executor should also be able to write 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 The executor package is named executor (no research-only module or runner name remains in src/ or tests/); the persisted task kind values stay backward compatible with existing rows
-- [ ] #2 The executor agent is built with pydantic-ai-harness Researcher and Coder capabilities and still runs as a DBOS-durable workflow that resumes after a worker kill
-- [ ] #3 Each idea gets its own project folder under a configurable root outside the relay repo; the Coder file tools cannot read or write outside that folder, verified by test
-- [ ] #4 A research commitment still produces the sourced Markdown brief and document artifact (TASK-28 behaviour), verified by the existing e2e test with stub models
-- [ ] #5 TASK-46 routing still picks the model per task (easy gemma4, hard gpt-6-luna then qwen3.8), verified by the routing e2e test
-- [ ] #6 Harness dependency added via uv with the needed extras and the quality triad (pytest, mypy, ruff) passes
+- [x] #1 The executor package is named executor (no research-only module or runner name remains in src/ or tests/); the persisted task kind values stay backward compatible with existing rows
+- [x] #2 The executor agent is built with pydantic-ai-harness Researcher and Coder capabilities and still runs as a DBOS-durable workflow that resumes after a worker kill
+- [x] #3 Each idea gets its own project folder under a configurable root outside the relay repo; the Coder file tools cannot read or write outside that folder, verified by test
+- [x] #4 A research commitment still produces the sourced Markdown brief and document artifact (TASK-28 behaviour), verified by the existing e2e test with stub models
+- [x] #5 TASK-46 routing still picks the model per task (easy gemma4, hard gpt-6-luna then qwen3.8), verified by the routing e2e test
+- [x] #6 Harness dependency added via uv with the needed extras and the quality triad (pytest, mypy, ruff) passes
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -46,4 +46,12 @@ Session 85558081 (feature, 3 waves).
 W1 Impl-Core: (A) executor package executor/research -> executor/agent on Researcher + Coder-equivalent capabilities, Shell with scrubbed env, sub-agents off for local models, DBOSDurability kept, TASK-46 routing kept, tests moved; (B) executor/workspace.py per-idea project folder under EXECUTOR_PROJECTS_ROOT (default ~/relay-projects) + tests.
 W2 Impl-Polish+Quality: security review (shell env, confinement, SSRF via harness WebFetch), session review, docs (README, docs/architecture.md), fix pass.
 W3 Finalization: full gate, commits, AC check.
+
+Verify the general executor, per-idea workspace confinement, durable workflow, research/code behavior, and local model routing through the full offline quality gate.
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+General durable executor complete with harness Researcher/Coder capabilities, confined per-idea workspaces, safe cross-platform Git plumbing and preserved research behavior.
+<!-- SECTION:FINAL_SUMMARY:END -->

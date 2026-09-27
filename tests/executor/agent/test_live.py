@@ -11,7 +11,8 @@ import re
 import time
 from collections.abc import Callable
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 import pytest
 from dbos import DBOSClient
@@ -59,7 +60,7 @@ async def test_live_research_brief_respects_exclusion(
         url: str = c.execute(
             text("SELECT url FROM artifacts WHERE task_id = :t"), {"t": started.task_id}
         ).scalar_one()
-    doc = Path(unquote(urlsplit(url).path)).read_text()
+    doc = Path(url2pathname(urlsplit(url).path)).read_text()
     body, _, tail = doc.partition("## Sources")
     sources = [ln for ln in tail.splitlines() if ln.startswith("- <http")]
     served = [ln for ln in worker.log.read_text().splitlines() if "served by" in ln]
@@ -80,7 +81,7 @@ async def test_live_hard_research_is_routed_to_the_hard_model(
     sync_engine: Engine,
     worker: ResearchWorker,
 ) -> None:
-    """One small hard task: the real router says hard, the hard model (gpt-6-luna) serves."""
+    """One small hard task: the real router says hard and the configured local model serves."""
     goal = (
         "Compare the licences of three open-source vector databases (Qdrant, Milvus, "
         "Weaviate) in a short brief: licence name and what it allows commercially."
@@ -107,7 +108,7 @@ async def test_live_hard_research_is_routed_to_the_hard_model(
         url: str = c.execute(
             text("SELECT url FROM artifacts WHERE task_id = :t"), {"t": started.task_id}
         ).scalar_one()
-    doc = Path(unquote(urlsplit(url).path)).read_text()
+    doc = Path(url2pathname(urlsplit(url).path)).read_text()
     sources = [ln for ln in doc.partition("## Sources")[2].splitlines() if ln.startswith("- <http")]
     print(
         f"\nLIVE hard duration={time.monotonic() - t0:.0f}s route={difficulty}/{status} "

@@ -21,6 +21,7 @@ import asyncio
 import json
 import logging
 import time
+from dataclasses import replace
 from typing import Any
 
 import httpx
@@ -95,6 +96,13 @@ class LLMRouter:
         if status == "ok":
             decision = decision_from_answers(answers, backend=BACKEND, latency_ms=latency_ms)
             status = "ok" if decision is not None else "invalid"
+            if decision is not None:
+                decision = replace(
+                    decision,
+                    input_tokens=usage.get("input_tokens"),
+                    output_tokens=usage.get("output_tokens"),
+                    cost_usd=usage.get("cost_usd"),
+                )
         log.info(
             "router llm model=%s status=%s latency_ms=%d input_tokens=%s output_tokens=%s "
             "cost_usd=%s",

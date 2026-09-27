@@ -75,10 +75,7 @@ def code_workflow(
 @DBOS.step(name="relay.code.commit")
 def commit_step(workspace: str, branch: str, base: str, message: str) -> dict[str, str]:
     folder = Path(workspace)
-    prefix, env = _sandbox(folder)
-    if prefix is None:
-        raise RuntimeError("sandbox-exec unavailable: refusing to run git on agent-written files")
-    sha = git.commit_all(folder, branch, message, prefix, env)
+    sha = git.commit_all(folder, branch, message)
     return {"sha": sha, "diffstat": git.diff_stat(folder, base, branch)}
 
 

@@ -1,4 +1,4 @@
-"""Acceptance tests for the migrations (TASK-21 0001, TASK-46 0002, TASK-31/46 0003)."""
+"""Acceptance tests for the relay database migrations."""
 
 from __future__ import annotations
 
@@ -33,7 +33,8 @@ EXPECTED_COLUMNS: dict[str, set[str]] = {
     "idea_edges": {"from_idea", "to_idea", "relation", "created_at"},
     "router_decisions": {
         "id", "turn_id", "task_id", "backend", "difficulty", "ready", "intent", "confidence",
-        "latency_ms", "is_active", "model_chosen", "router_status", "created_at",
+        "latency_ms", "input_tokens", "output_tokens", "cost_usd", "is_active",
+        "model_chosen", "router_status", "created_at",
     },
     "pending_reports": {
         "id", "session_id", "idea_id", "task_id", "summary", "created_at", "offered_at",
@@ -305,7 +306,10 @@ def test_0002_downgrade_restores_0001_schema_and_upgrades_again(
         with engine.connect() as conn:
             insp = inspect(conn)
             cols = {c["name"]: c for c in insp.get_columns("router_decisions")}
-            added = {"task_id", "model_chosen", "router_status"}
+            added = {
+                "task_id", "model_chosen", "router_status",
+                "input_tokens", "output_tokens", "cost_usd",
+            }
             assert set(cols) == EXPECTED_COLUMNS["router_decisions"] - added
             assert cols["turn_id"]["nullable"] is False
             assert "served_model" not in {c["name"] for c in insp.get_columns("tasks")}

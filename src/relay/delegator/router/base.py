@@ -46,6 +46,9 @@ class RouterDecision:
     confidence: float | None
     backend: str
     latency_ms: int
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost_usd: float | None = None
 
 
 @runtime_checkable

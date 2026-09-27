@@ -1,11 +1,11 @@
 ---
 id: TASK-46
 title: Route delegated tasks by difficulty to gemma or gpt-6-luna
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-09-26 17:38'
-updated_date: '2026-09-26 19:26'
+updated_date: '2026-09-27 00:34'
 labels:
   - phase-1
   - router
@@ -38,6 +38,8 @@ Owner decision (2026-09-26): when a commitment is dispatched, the chosen router 
 
 <!-- SECTION:PLAN:BEGIN -->
 executor/routing.py: gemma4 v2 easy/hard router (prompt from benchmarks/router/common.py v2), 5 s timeout, failure→hard; research runner picks model per decision (easy: gemma4; hard: gpt-6-luna → qwen3.8 fallback), configurable via .env; migration 0002 lets router_decisions reference the task (task_id, turn_id nullable) and records chosen/served model; served model on artifact/task; tests with stub models + router.
+
+Owner supersession (2026-09-27): route both easy and hard tasks to configurable local Ollama models by default; retain provider abstraction but make paid cloud models opt-in and do not invoke them.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -47,3 +49,9 @@ executor/routing.py: gemma4 v2 easy/hard router (prompt from benchmarks/router/c
 
 2026-09-26: AC1 closed — migration 0003 adds commitments.assent_turn_id (written by the commitment protocol) and narrows uq_router_decisions_active to task_id IS NULL; runner.record_route_step sets router_decisions.turn_id to the assent turn. test_easy_task_runs_on_easy_model_and_logs_decision asserts the link (fails with the runner change removed). Gate: 461 passed/14 skipped, mypy 0, ruff 0.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Task difficulty routing is auditable, durable across worker kill, fail-safe to hard, records chosen/served models and defaults both routes to local Ollama.
+<!-- SECTION:FINAL_SUMMARY:END -->

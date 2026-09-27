@@ -76,6 +76,9 @@ class StubRouter:
             confidence=None,
             backend=self.name,
             latency_ms=round(self.delay * 1000),
+            input_tokens=400 if self.name == "llm" else None,
+            output_tokens=25 if self.name == "llm" else None,
+            cost_usd=0.0 if self.name == "llm" else None,
         )
 
 
@@ -189,12 +192,15 @@ async def test_router_active_is_switched_by_settings_alone(
 ) -> None:
     """AC#2. Bug caught: a backend hard-wired on the request path, or ``none`` (the force-
     frontier toggle) still calling a router."""
-    body, _, _, turn, _ = await run_turn(db, active=active)
+    body, _, _, turn, rows = await run_turn(db, active=active)
     assert {n: r.calls for n, r in routers.items()} == {
         n: int(n == active) for n in ("laya", "llm")
     }
     assert turn.route == ("frontier" if active == "none" else "small_local")
     assert (FRONTIER_TEXT if active == "none" else LOCAL_TEXT) in body
+    if active == "llm":
+        [row] = rows
+        assert (row.input_tokens, row.output_tokens, row.cost_usd) == (400, 25, 0.0)
 
 
 @pytest.mark.parametrize(

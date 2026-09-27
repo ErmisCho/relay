@@ -68,6 +68,14 @@ _WARNED_SESSIONS_MAX = 1024
 PREVIOUS_TURN_WAIT_S = 1.0
 # Upper bound for flushing detached finalisation on shutdown.
 DRAIN_TIMEOUT_S = 10.0
+# Optional context I/O must not leave a voice request waiting on database timeouts.
+CONTEXT_IO_TIMEOUT_S = 0.5
+HARDWARE_TOOL_NOTE = (
+    "For questions about this computer's specs, processor, GPU, or RAM, call "
+    "hardware_capabilities before answering. It reads the machine running Relay's backend, "
+    "which may differ from the voice client. Report only returned facts. This read-only "
+    "lookup needs no commitment or background task."
+)
 
 
 class ChatCompletionRequest(BaseModel):
@@ -406,9 +414,13 @@ class DelegatorService:
         task.add_done_callback(_done)
 
     async def _safe(self, what: str, op: Awaitable[T]) -> T | None:
-        """Await a DB write; log and swallow failures so the voice turn keeps going."""
+        """Bound optional context I/O; log failures so the voice turn keeps going."""
         try:
-            return await op
+            async with asyncio.timeout(CONTEXT_IO_TIMEOUT_S):
+                return await op
+        except TimeoutError:
+            log.warning("delegator: %s timed out after %.2fs", what, CONTEXT_IO_TIMEOUT_S)
+            return None
         except Exception:
             log.exception("delegator: %s failed", what)
             return None
@@ -493,12 +505,19 @@ class DelegatorService:
             if self._router is not None and state.pending_proposal is None
             else None
         )
-        notes: list[str] = []
+        notes: list[str] = [HARDWARE_TOOL_NOTE] if "hardware_capabilities" in self.registry else []
         for hook in self.hooks:
-            try:
-                notes.extend(await hook.before_model(ctx))
-            except Exception:
-                log.exception("delegator: hook %r before_model failed", hook)
+            if getattr(hook, "safety_critical", False):
+                try:
+                    notes.extend(await hook.before_model(ctx))
+                except Exception:
+                    log.exception("delegator: safety hook %r before_model failed", hook)
+                continue
+            hook_notes = await self._safe(
+                f"hook {type(hook).__name__} before_model", hook.before_model(ctx)
+            )
+            if hook_notes:
+                notes.extend(hook_notes)
         route = await route_task if route_task is not None else None
         chat_model, local_name = self._select_model(route, session_id)
         upstream = _with_system_prefix(messages, self._system_prefix())
@@ -592,7 +611,7 @@ class DelegatorService:
                             call.arguments += frag.arguments
             except Exception:
                 log.exception("delegator: upstream model failed")
-                if not turn.text_parts:
+                if not turn.text_parts or round_no > 0:
                     turn.text_parts.append(APOLOGY_TEXT)
                     yield APOLOGY_TEXT
                 return
@@ -633,9 +652,21 @@ class DelegatorService:
                         ],
                     }
                 ]
-                for call in internal:
-                    result = await self._execute(call, turn)
-                    messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
+                results = await asyncio.gather(*(self._execute(call, turn) for call in internal))
+                if all(
+                    getattr(self.registry.get(call.name), "direct_response", False)
+                    for call in internal
+                ) and all(not result.startswith("Error:") for result in results):
+                    for result in results:
+                        if turn.first_token_at is None:
+                            turn.first_token_at = time.perf_counter()
+                        turn.text_parts.append(result)
+                        yield result
+                    return
+                messages.extend(
+                    {"role": "tool", "tool_call_id": call.id, "content": result}
+                    for call, result in zip(internal, results, strict=True)
+                )
                 # Tool results (a commitment read-back, recall, status) are answered by the
                 # normal model: small_local covers plain conversation only.
                 turn.chat_model = self.chat_model
@@ -681,7 +712,15 @@ class DelegatorService:
             user_turn_id=turn.ctx.user_turn_id,
         )
         try:
+            started = time.perf_counter()
+            log.info("delegator: executing internal tool %s", call.name)
             result = await tool(args, ctx)
+            log.info(
+                "delegator: internal tool %s completed in %.0fms rejected=%s",
+                call.name,
+                (time.perf_counter() - started) * 1000,
+                result.rejected,
+            )
         except Exception:
             log.exception("delegator: internal tool %s failed", call.name)
             return f"Error: {call.name} failed internally. Tell the user briefly and move on."

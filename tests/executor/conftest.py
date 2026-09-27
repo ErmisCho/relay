@@ -7,7 +7,6 @@ the root ``make_database`` fixture) removes everything DBOS created.
 from __future__ import annotations
 
 import os
-import signal
 import socket
 import subprocess
 import sys
@@ -80,7 +79,7 @@ class Worker:
 
     def kill(self) -> None:
         if self.proc is not None and self.proc.poll() is None:
-            self.proc.send_signal(signal.SIGKILL)
+            self.proc.kill()
             self.proc.wait(timeout=10)
         self.proc = None
 

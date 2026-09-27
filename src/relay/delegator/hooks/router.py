@@ -299,6 +299,9 @@ class RouterHook:
             intent=decision.intent if decision else None,
             confidence=decision.confidence if decision else None,
             latency_ms=latency_ms,
+            input_tokens=decision.input_tokens if decision else None,
+            output_tokens=decision.output_tokens if decision else None,
+            cost_usd=decision.cost_usd if decision else None,
             router_status=status,
             is_active=is_active,
         )

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import signal
 import threading
 import time
@@ -292,9 +291,9 @@ async def test_two_real_sigints_shut_down_gracefully(
     listener, voice, audio, _ = make(sessionmaker, {2}, stop_delay_s=0.3)
     runner = asyncio.create_task(run_until_signalled(listener.run()))
     await wait_for(lambda: voice.holds_microphone)
-    os.kill(os.getpid(), signal.SIGINT)
+    signal.raise_signal(signal.SIGINT)
     await asyncio.to_thread(voice.stopping.wait, 5)
-    os.kill(os.getpid(), signal.SIGINT)  # ignored, not a KeyboardInterrupt
+    signal.raise_signal(signal.SIGINT)  # ignored, not a KeyboardInterrupt
     await runner
     assert (await row(sessionmaker, voice.session_ids[0])).ended_at is not None
     assert not voice.holds_microphone and not audio.is_open

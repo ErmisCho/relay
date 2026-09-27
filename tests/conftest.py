@@ -58,14 +58,14 @@ def make_database() -> Iterator[Callable[[], str]]:
 
     def _make() -> str:
         name = f"relay_test_{uuid.uuid4().hex[:12]}"
-        with psycopg.connect(admin_url, autocommit=True) as conn:
+        with psycopg.connect(admin_url, connect_timeout=3, autocommit=True) as conn:
             conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
         created.append(name)
         return make_url(_server_url()).set(database=name).render_as_string(hide_password=False)
 
     yield _make
 
-    with psycopg.connect(admin_url, autocommit=True) as conn:
+    with psycopg.connect(admin_url, connect_timeout=3, autocommit=True) as conn:
         for name in created:
             conn.execute(
                 sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name))

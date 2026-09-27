@@ -614,6 +614,8 @@ class CommitmentHook:
     ``ScopeHook``.
     """
 
+    safety_critical = True
+
     def __init__(
         self,
         *,

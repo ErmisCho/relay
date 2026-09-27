@@ -68,7 +68,10 @@ def test_symlinked_idea_folder_is_not_reused(tmp_path: Path) -> None:
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     idea = uuid.uuid4()
-    (root / f"planted-{idea.hex[:8]}").symlink_to(elsewhere, target_is_directory=True)
+    try:
+        (root / f"planted-{idea.hex[:8]}").symlink_to(elsewhere, target_is_directory=True)
+    except OSError as exc:
+        pytest.skip(f"symlinks unavailable: {exc}")
     got = project_dir(idea, "My idea", _settings(root))
     assert not got.is_symlink()
     assert got.parent == root.resolve() and got != elsewhere.resolve()

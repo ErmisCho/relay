@@ -75,7 +75,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # --- Store -----------------------------------------------------------------------------
-    database_url: str = "postgresql+asyncpg://relay:relay@localhost:55432/relay"
+    database_url: str = "postgresql+asyncpg://relay:relay@127.0.0.1:55432/relay"
 
     # --- LLM providers (local Ollama by default; frontier only by config) ------------------
     ollama_base_url: str = "http://localhost:11434/v1"
@@ -106,8 +106,8 @@ class Settings(BaseSettings):
     router_model: str = "ollama:gemma4:e4b"
     router_timeout_s: float = 5.0
     research_easy_model: str = "ollama:gemma4:e4b"
-    research_hard_model: str = "openai:gpt-6-luna"
-    research_hard_fallback_model: str = "ollama:qwen3.8:latest"
+    research_hard_model: str = "ollama:qwen3.8:latest"
+    research_hard_fallback_model: str = "ollama:gemma4:e4b"
 
     # --- Per-turn router (TASK-36/41; SPEC section 2) ---------------------------------------
     # ROUTER_SHADOW: comma list of backends (e.g. "laya,llm") run after each response for

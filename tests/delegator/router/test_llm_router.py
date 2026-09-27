@@ -80,6 +80,7 @@ async def test_ollama_request_uses_shared_questions_and_bounded_context() -> Non
     decision = await router.decide("go ahead", history)
     assert decision is not None
     assert (decision.difficulty, decision.backend, decision.confidence) == ("frontier", "llm", None)
+    assert (decision.input_tokens, decision.output_tokens, decision.cost_usd) == (400, 25, 0.0)
     payload = seen[0]
     assert payload["options"]["temperature"] == 0
     assert payload["format"]["required"] == list(ALL_QUESTIONS)

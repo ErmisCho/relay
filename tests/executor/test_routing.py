@@ -169,7 +169,8 @@ def test_unreachable_router_routes_hard() -> None:
         router_timeout_s=0.5,
     )
     d = classify_difficulty(GOAL, "", s)
-    assert (d.difficulty, d.valid, d.status) == ("hard", False, "error")
+    assert (d.difficulty, d.valid) == ("hard", False)
+    assert d.status in {"error", "timeout"}  # firewall policy decides refused vs. dropped
 
 
 def test_unsupported_router_provider_routes_hard() -> None:

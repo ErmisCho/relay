@@ -279,6 +279,9 @@ class RouterDecision(Base):
     intent: Mapped[str | None] = mapped_column(Text)
     confidence: Mapped[float | None] = mapped_column(Float)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[float | None] = mapped_column(Float)
     # True for the backend whose decision actually drove routing on this turn / task.
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     # Task-difficulty router: the `<provider>:<model>` picked as primary for the task, and

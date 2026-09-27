@@ -1,10 +1,11 @@
 ---
 id: TASK-37
 title: Route small_local turns to Ollama using the active router backend
-status: In Progress
-assignee: []
+status: Done
+assignee:
+  - '@claude'
 created_date: '2026-09-26 13:09'
-updated_date: '2026-09-26 19:49'
+updated_date: '2026-09-27 00:34'
 labels:
   - phase-3
   - router
@@ -45,8 +46,20 @@ Once the shadow comparison has picked a backend (zero-shot Laya or the LLM route
 - [x] #4 Assent classification is never served by the local model or the router
 <!-- AC:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Verify active routing and fallback with local Ollama/fakes only; switching backends remains configuration-only and paid providers are never invoked.
+<!-- SECTION:PLAN:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-09-26 (commit after 751ca58): live with ROUTER_ACTIVE=laya: turn 1 Laya still loading → 151 ms timeout → frontier; turns 2-3 small_local served by local:gemma4:e4b (359/377 ms), Laya 127/140 ms. Tests test_active.py (11 cases). Gate 500 passed/15 skipped, mypy 0, ruff 0. Notes: ROUTER_ACTIVE switch needs a restart; frontier difficulty labels for TASK-36 AC5 still missing.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Active Laya/LLM configuration routes capable small-local turns to Ollama with silent normal-model fallback and safety-critical assent isolation.
+<!-- SECTION:FINAL_SUMMARY:END -->

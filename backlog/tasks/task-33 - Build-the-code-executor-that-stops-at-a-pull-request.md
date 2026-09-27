@@ -1,10 +1,11 @@
 ---
 id: TASK-33
 title: Build the code executor that stops at a pull request
-status: In Progress
-assignee: []
+status: Done
+assignee:
+  - '@claude'
 created_date: '2026-09-26 13:09'
-updated_date: '2026-09-26 19:49'
+updated_date: '2026-09-27 00:34'
 labels:
   - phase-2
   - executor
@@ -43,6 +44,12 @@ Phase 2 adds the second vertical: write code, refactor, run tests, open PRs. The
 - [x] #4 An `artifacts` row of kind `pull_request` is recorded and announced at the next turn boundary
 <!-- AC:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Verify the branch/test/draft-PR safety workflow offline with local repositories and fakes; no external push, merge, or paid API call during this completion pass.
+<!-- SECTION:PLAN:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
@@ -50,3 +57,9 @@ Phase 2 adds the second vertical: write code, refactor, run tests, open PRs. The
 
 2026-09-26 751ca58: DBOS steps route→workspace→checkout (git init + relay/<id8>-<slug>)→code agent→sandboxed commit→sandboxed run_tests→worker-side push→draft PR (reuses open PR; never merges). No GITHUB_TOKEN → branch artifact (migration 0004). Tests: e2e draft PR with goal/exclusions/test results + pull_request artifact announced via ReportsHook; push guard refuses main/master/origin HEAD/non-relay branches; sigkill resume; no-token local branch. Gate 488 passed/15 skipped, mypy 0, ruff 0. Code stays opt-in: ENABLED_KINDS=research,code + GITHUB_TOKEN. Not yet live-run.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Offline e2e proves task branch, safe commit, tests, draft-PR contract, crash resume, report delivery and default-branch/merge guards.
+<!-- SECTION:FINAL_SUMMARY:END -->

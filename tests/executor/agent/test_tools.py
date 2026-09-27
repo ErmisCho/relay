@@ -29,6 +29,7 @@ from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from relay.executor.agent import ExecutorDeps, ResearchBrief, executor_capability
 from relay.executor.agent.agent import INSTRUCTIONS
+from relay.executor.agent.sandbox import sandbox_exec_path
 
 # No provider-native tools (like the local Ollama models), so web_fetch runs the harness's own
 # local fetch; FunctionModel otherwise claims native web fetch and the local tool is not offered.
@@ -76,6 +77,7 @@ def workspace(tmp_path: Path) -> Path:
     return ws
 
 
+@pytest.mark.skipif(sandbox_exec_path() is None, reason="sandboxed shell unavailable")
 def test_shell_environment_carries_no_worker_secrets(
     workspace: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

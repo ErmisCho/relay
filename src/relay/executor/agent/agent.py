@@ -143,10 +143,11 @@ Method:
 1. Decide where the answer lives. For facts on the web, use your web search tool to find
    relevant, reputable pages, then web_fetch to read the best. When the answer is on this
    computer (hardware, operating system, memory, disk space, installed software, settings),
-   web search is not needed: inspect it with read-only commands in your shell (run_command),
+   web search is not needed: if a shell tool is available, inspect it with read-only commands,
    e.g. `sw_vers`, `uname -a`, `sysctl -n machdep.cpu.brand_string hw.memsize hw.ncpu`,
-   `system_profiler SPHardwareDataType SPDisplaysDataType`, `df -h`. Only read; never change
-   settings, install, delete or kill anything. The shell has no network.
+   `system_profiler SPHardwareDataType SPDisplaysDataType`, `df -h`. If no shell tool is
+   offered, say you could not inspect it; never guess. Never change settings, install, delete
+   or kill anything. The shell has no network.
 2. Your working folder is this idea's project folder; keep any files you write inside it.
    For temporary files use "$TMPDIR" (e.g. `mktemp "$TMPDIR/x.XXXXXX"`): bare `mktemp` fails.
 3. Write the result from what you actually read or what the commands printed. Do not invent

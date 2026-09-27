@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from dataclasses import dataclass, field
@@ -43,10 +44,39 @@ def tool_call(name: str, arguments: str, call_id: str = "call_1") -> list[ChatDe
     ]
 
 
-def registry_with(tool: SecretTool) -> ToolRegistry:
+def registry_with(*tools: Any) -> ToolRegistry:
     registry = ToolRegistry()
-    registry.register(tool)
+    for tool in tools:
+        registry.register(tool)
     return registry
+
+
+@dataclass
+class CoordinatedTool(SecretTool):
+    started: list[str] = field(default_factory=list)
+    both_started: asyncio.Event = field(default_factory=asyncio.Event)
+    fail: bool = False
+
+    async def __call__(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+        self.started.append(self.name)
+        if len(self.started) == 2:
+            self.both_started.set()
+        await asyncio.wait_for(self.both_started.wait(), 0.2)
+        if self.fail:
+            raise RuntimeError("expected test failure")
+        return ToolResult(content=f"result:{self.name}")
+
+
+def two_tool_calls() -> list[ChatDelta]:
+    return [
+        ChatDelta(
+            tool_calls=[
+                ToolCallDelta(0, id="call_1", name="first", arguments="{}"),
+                ToolCallDelta(1, id="call_2", name="second", arguments="{}"),
+            ]
+        ),
+        ChatDelta(finish_reason="tool_calls"),
+    ]
 
 
 async def test_system_tool_is_passed_through(dead_db: async_sessionmaker[AsyncSession]) -> None:
@@ -108,7 +138,7 @@ async def test_wiring_registers_hardware_and_weather_tools(
     """The real ``build_registry()`` wiring exposes both new tools end-to-end, not just a
     hand-built ``ToolRegistry`` in a unit test."""
     registry = build_registry()
-    model = ScriptedChatModel([tool_call("hardware_capabilities", "{}"), text("Got it.")])
+    model = ScriptedChatModel([tool_call("hardware_capabilities", "{}")])
     app = create_app(
         make_settings(), chat_model=model, registry=registry, hooks=[], sessionmaker=dead_db
     )
@@ -117,8 +147,35 @@ async def test_wiring_registers_hardware_and_weather_tools(
     assert resp.status_code == 200
     tool_names = {t["function"]["name"] for t in model.calls[0]["tools"]}
     assert {"hardware_capabilities", "get_weather", "get_status"} <= tool_names
-    result = model.calls[1]["messages"][-1]
-    assert result["role"] == "tool" and result["content"]
+    spoken = "".join(
+        chunk["choices"][0]["delta"].get("content", "") for chunk in parse_sse(resp.content)
+    )
+    assert "GPU:" in spoken and "memory" in spoken
+
+
+async def test_same_round_tools_run_concurrently_and_keep_order_on_failure(
+    dead_db: async_sessionmaker[AsyncSession],
+) -> None:
+    started: list[str] = []
+    both_started = asyncio.Event()
+    first = CoordinatedTool(name="first", started=started, both_started=both_started)
+    second = CoordinatedTool(name="second", started=started, both_started=both_started, fail=True)
+    model = ScriptedChatModel([two_tool_calls(), text("Used both results.")])
+    app = create_app(
+        make_settings(),
+        chat_model=model,
+        registry=registry_with(first, second),
+        hooks=[],
+        sessionmaker=dead_db,
+    )
+
+    response = await post(app, load_request())
+
+    assert response.status_code == 200 and started == ["first", "second"]
+    results = model.calls[1]["messages"][-2:]
+    assert [result["tool_call_id"] for result in results] == ["call_1", "call_2"]
+    assert results[0]["content"] == "result:first"
+    assert "second failed internally" in results[1]["content"]
 
 
 async def test_invalid_internal_tool_arguments_are_reported_to_the_model(

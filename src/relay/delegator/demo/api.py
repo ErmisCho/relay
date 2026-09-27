@@ -23,7 +23,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, Request
@@ -205,7 +206,7 @@ def artifact_markdown(url: str, artifacts_dir: str) -> str | None:
     parsed = urlparse(url)
     if parsed.scheme != "file":
         return None
-    path = Path(unquote(parsed.path)).resolve()
+    path = Path(url2pathname(parsed.path)).resolve()
     root = Path(artifacts_dir).resolve()
     if not path.is_relative_to(root) or not path.is_file():
         return None

@@ -1,11 +1,11 @@
 ---
 id: TASK-48
 title: Add hardware-capability and live-weather internal tools
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-09-26 20:37'
-updated_date: '2026-09-26 20:58'
+updated_date: '2026-09-27 00:34'
 labels:
   - phase-1
   - delegator
@@ -26,7 +26,7 @@ Deliberate scope expansion (user decision, 2026-09-26) beyond SPEC.md's two vert
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 hardware_capabilities tool returns chip/memory/GPU info and a local-LLM recommendation
+- [x] #1 hardware_capabilities tool returns chip/memory/GPU info and a local-LLM recommendation
 - [x] #2 get_weather tool returns current conditions for a named location via a real API call
 - [x] #3 Both tools registered in wiring.build_registry() and covered by a contract test in tests/delegator/test_tools.py
 - [x] #4 uv run pytest, uv run mypy src, uv run ruff check . all pass
@@ -41,5 +41,5 @@ AC#1 partial: hardware_capabilities reports chip + total memory only, no GPU cor
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-Added hardware_capabilities and get_weather internal tools, registered in wiring.build_registry(), both answering directly in conversation (no commitment-protocol dispatch). get_weather calls Open-Meteo (geocoding + forecast, keyless) and degrades to a speakable message on any upstream failure. hardware_capabilities reports chip + total memory (stdlib os.sysconf on POSIX, ctypes GlobalMemoryStatusEx on Windows) and a 3-tier local-LLM recommendation - deliberately memory-only, no GPU core count (see notes). 9 new direct-tool tests plus 1 new end-to-end wiring test through the real registry/tool-loop; full suite 32 passed/0 failed, mypy clean, ruff clean. AC#1 left unchecked: it promised GPU info that was not built.
+Hardware and weather answer directly. Hardware now reports CPU/chip, RAM, GPU and a model recommendation with Darwin/Windows/Linux probes; real local Ollama selected the tool and spoke the observed 95 GB host profile. Weather remains keyless and fake-transport tested.
 <!-- SECTION:FINAL_SUMMARY:END -->

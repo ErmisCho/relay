@@ -54,6 +54,7 @@ class GetWeatherTool:
     """``InternalTool`` reporting current weather for a named location."""
 
     name = "get_weather"
+    direct_response = True
     description = "Look up current weather conditions for a named location."
     parameters: dict[str, Any] = {
         "type": "object",

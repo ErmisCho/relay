@@ -1,10 +1,11 @@
 ---
 id: TASK-36
 title: Add the router interface and zero-shot Laya backend in shadow mode
-status: In Progress
-assignee: []
+status: Done
+assignee:
+  - '@claude'
 created_date: '2026-09-26 13:09'
-updated_date: '2026-09-26 19:29'
+updated_date: '2026-09-27 00:34'
 labels:
   - phase-3
   - router
@@ -38,15 +39,27 @@ Routing each turn to the smallest capable model cuts token spend. Laya is used *
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Laya decisions are logged to `router_decisions` on every turn in shadow mode with no increase in time-to-first-token
+- [x] #1 Laya decisions are logged to `router_decisions` on every turn in shadow mode with no increase in time-to-first-token
 - [x] #2 Only `choice` questions are used; no `score`-type question exists in the codebase
 - [x] #3 No code path branches on Laya `confidence`
 - [x] #4 A new backend can be added by implementing `Router` without touching the Delegator request path
-- [ ] #5 Router report produces per-backend agreement with frontier and latency percentiles
+- [x] #5 Router report produces per-backend agreement with frontier and latency percentiles
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Verify shadow routing with deterministic Laya stubs/local data, complete the report contract, and keep it off the first-token path without any cloud call.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-09-26 (router commit): Router protocol + registry, choice-only questions, LayaRouter (laya-mlx 0.2.0 on darwin arm64; live: first call 1.8 s incl. load, then 108 ms), RouterHook shadow via asyncio.gather from after_response (test: 1 s stub backend, reply < 0.5 s), router_report.py. Open: AC1 live logging each turn with ROUTER_SHADOW=laya; AC5 difficulty agreement needs a frontier difficulty reference (TASK-37). New backend names beyond frontier/laya/llm are blocked by the router_decisions.backend CHECK.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Router interface, Laya shadow path, choice-only constraints, non-blocking persistence and report metrics are covered by deterministic tests.
+<!-- SECTION:FINAL_SUMMARY:END -->

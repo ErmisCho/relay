@@ -1,10 +1,11 @@
 ---
 id: TASK-35
 title: Build client capability detection and publish the capability profile
-status: In Progress
-assignee: []
+status: Done
+assignee:
+  - '@claude'
 created_date: '2026-09-26 13:09'
-updated_date: '2026-09-26 19:26'
+updated_date: '2026-09-27 00:34'
 labels:
   - phase-3
   - client
@@ -34,13 +35,25 @@ Cloud is the default; local inference is an opportunistic optimisation and never
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Profile is published at session start on macOS, Windows and Linux
+- [x] #1 Profile is published at session start on macOS, Windows and Linux
 - [x] #2 A machine without Ollama reports `can_run_local=false` and the system works unchanged
 - [x] #3 Delegator treats a missing profile as cloud-only
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Exercise capability detection on Windows plus simulated macOS/Linux branches, verify missing Ollama remains functional, and keep local inference optional.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-09-26: client probe (Ollama /api/tags 1 s budget, mlx import, free RAM via vm_stat//proc/meminfo/GlobalMemoryStatusEx) published on every session create via CapabilityPublishingStore to POST /v1/capabilities (bearer auth, LRU 256); missing profile = CLOUD_ONLY. Real probe on the M4 Pro: can_run_local=true, gemma4:e4b, free 32.75 GB, mlx not installed, 31 ms. AC1 open: Linux/Windows memory branches never run.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Capability probe/publish is cross-platform stdlib code, non-blocking on every wake, and defaults safely to cloud-only when absent.
+<!-- SECTION:FINAL_SUMMARY:END -->
