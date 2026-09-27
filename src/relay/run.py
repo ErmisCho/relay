@@ -49,13 +49,17 @@ def port_owner(port: int) -> str | None:
     """None if 127.0.0.1:``port`` is free, else a description of who holds it."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         # Like uvicorn: without SO_REUSEADDR a connection left in TIME_WAIT by the previous
-        # run makes the port look taken for a minute although nothing listens on it.
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # run makes the port look taken for a minute although nothing listens on it. Not on
+        # Windows: there SO_REUSEADDR binds even over a live listener, hiding the conflict.
+        if sys.platform != "win32":
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             sock.bind(("127.0.0.1", port))
             return None
         except OSError:
             pass
+    if shutil.which("lsof") is None:  # Windows: no lsof/ps to name the owner
+        return "another process"
     found = subprocess.run(
         ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"], capture_output=True, text=True
     ).stdout.split()
@@ -254,7 +258,7 @@ def main() -> None:
             print("relay: DELEGATOR_PUBLIC_URL is not set; no tunnel, so voice will not work")
         print(
             f"\n    Demo:     http://127.0.0.1:{args.delegator_port}/\n"
-            f"    Passcode: {passcode}\n"
+            f"    Passcode: {passcode} (only via the tunnel; this PC logs in directly)\n"
             "    Ctrl-C stops everything.\n",
             flush=True,
         )
