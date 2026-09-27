@@ -262,7 +262,8 @@ def sandboxed_shell(
     sandbox is unavailable. Never returns an unsandboxed shell."""
     exe = sandbox_exec_path()
     if exe is None:
-        _warn_unsandboxed()
+        if sys.platform == "darwin":  # elsewhere the Docker shell (docker_shell.py) takes over
+            _warn_unsandboxed()
         return None
     roots = list(denied_read_roots)
     root = Path(_real(workspace))
