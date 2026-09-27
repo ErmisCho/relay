@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import dataclasses
 import functools
 import json
 import time
@@ -24,7 +25,13 @@ from relay.delegator.commitment import (
     build_readback,
 )
 from relay.delegator.commitment import protocol as commitment_protocol
-from relay.delegator.contracts import SessionStore, ToolRegistry
+from relay.delegator.contracts import (
+    InternalTool,
+    SessionStore,
+    ToolContext,
+    ToolRegistry,
+    ToolResult,
+)
 from relay.delegator.hooks.scope import ScopeHook
 from relay.delegator.llm import ChatDelta
 from relay.delegator.llm.base import ToolCallDelta
@@ -126,6 +133,30 @@ def word() -> str:
     return "zq" + "".join("abcdefghijklmnop"[int(c, 16)] for c in uuid.uuid4().hex[:10])
 
 
+class RecordingTool:
+    """Wraps an internal tool and records each result: after a proposal the server speaks the
+    read-back and ends the turn, so no later model call carries the tool results."""
+
+    _OWN = frozenset({"inner", "sink"})
+
+    def __init__(self, inner: InternalTool, sink: list[str]) -> None:
+        object.__setattr__(self, "inner", inner)
+        object.__setattr__(self, "sink", sink)
+
+    # Everything else (name, schema, and the knobs tests set, like ``_start`` / ``_grace_s``)
+    # lives on the wrapped tool.
+    def __getattr__(self, attr: str) -> Any:
+        return getattr(self.inner, attr)
+
+    def __setattr__(self, attr: str, value: Any) -> None:
+        setattr(self if attr in self._OWN else self.inner, attr, value)
+
+    async def __call__(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+        result = await self.inner(args, ctx)
+        self.sink.append(result.content)
+        return result
+
+
 @dataclass
 class Convo:
     """One voice session against the real app. ``history`` is what ElevenLabs would resend."""
@@ -141,6 +172,7 @@ class Convo:
     history: list[dict[str, Any]] = field(
         default_factory=lambda: [{"role": "system", "content": SYSTEM}]
     )
+    results: list[str] = field(default_factory=list)
 
     @property
     def goal(self) -> str:
@@ -176,6 +208,7 @@ class Convo:
         """
         self.history.append({"role": "user", "content": user})
         self.chat.scripts = list(scripts)
+        self.results.clear()
         svc = self.app.state.service
         body = ChatCompletionRequest(
             model="relay-delegator",
@@ -192,6 +225,7 @@ class Convo:
 
     async def _post(self, scripts: tuple[list[ChatDelta], ...], recorded: str | None) -> str:
         self.chat.scripts = list(scripts)
+        self.results.clear()
         body = {
             "model": "relay-delegator",
             "messages": self.history,
@@ -209,9 +243,8 @@ class Convo:
         return spoken
 
     def tool_results(self) -> list[str]:
-        """Tool results the model saw in the last turn, in order."""
-        last = self.chat.calls[-1]["messages"] if self.chat.calls else []
-        return [m["content"] for m in last if m.get("role") == "tool"]
+        """Internal tool results of the last turn, in order."""
+        return list(self.results)
 
     def notes(self) -> list[str]:
         """Per-turn system notes the model saw in the first round of the last turn."""
@@ -258,10 +291,14 @@ def build_convo(
     assent = assent or FakeLabelModel("affirmative")
     store = store or SessionStore()
     client = StubDBOSClient()
+    results: list[str] = []
     registry = ToolRegistry()
-    registry.register(ProposeCommitmentTool())
+    registry.register(RecordingTool(ProposeCommitmentTool(), results))
     registry.register(
-        DispatchTaskTool(functools.partial(start_task, client=client), grace_s=grace_s)
+        RecordingTool(
+            DispatchTaskTool(functools.partial(start_task, client=client), grace_s=grace_s),
+            results,
+        )
     )
     hook = hook or CommitmentHook(assent_model=assent, score_ready=False)
     chat = ScriptedChatModel([])
@@ -274,7 +311,9 @@ def build_convo(
         sessionmaker=db,
         warm_dbos=False,
     )
-    return Convo(app=app, chat=chat, assent=assent, db=db, store=store, client=client)
+    return Convo(
+        app=app, chat=chat, assent=assent, db=db, store=store, client=client, results=results
+    )
 
 
 def propose(goal: str, excludes: str = "pricing", artifact: str = "document") -> list[ChatDelta]:
@@ -284,6 +323,21 @@ def propose(goal: str, excludes: str = "pricing", artifact: str = "document") ->
 
 def dispatch(args: dict[str, Any] | None = None, call_id: str = "call_d") -> list[ChatDelta]:
     return tool_call("dispatch_task", json.dumps(args or {}), call_id)
+
+
+def same_round(*calls: list[ChatDelta]) -> list[ChatDelta]:
+    """Several tool calls in ONE model response (parallel calls), e.g. propose + dispatch."""
+    merged: list[ChatDelta] = []
+    for index, script in enumerate(calls):
+        for delta in script:
+            if delta.tool_calls:
+                merged.append(
+                    dataclasses.replace(
+                        delta,
+                        tool_calls=[dataclasses.replace(t, index=index) for t in delta.tool_calls],
+                    )
+                )
+    return [*merged, ChatDelta(finish_reason="tool_calls")]
 
 
 __all__ = ["text"]

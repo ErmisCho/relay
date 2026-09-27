@@ -8,7 +8,14 @@ from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai.models.openai import OpenAIChatModel, OpenAIResponsesModel
 
 from relay.config import Settings
-from relay.executor.agent.agent import build_model_from_ref, build_route_models, route_model_refs
+from relay.executor.agent import agent as agent_module
+from relay.executor.agent.agent import (
+    RateLimitRetryTransport,
+    build_model_from_ref,
+    build_route_models,
+    primary_system,
+    route_model_refs,
+)
 
 
 def _settings(**overrides: object) -> Settings:
@@ -87,3 +94,48 @@ def test_ollama_model_talks_to_the_configured_base_url() -> None:
     model = build_model_from_ref("ollama:gemma4:e4b", _settings())
     assert isinstance(model, OpenAIChatModel)
     assert model.base_url == "http://ollama.test:11434/v1/"
+
+
+@pytest.mark.parametrize(
+    ("responses", "expected_status", "expected_calls"),
+    [
+        # A rate limit is waited out, so the run stays on the frontier model.
+        ([(429, {"retry-after-ms": "10"}), (200, {})], 200, 2),
+        # Anything else goes straight to the FallbackModel.
+        ([(500, {}), (200, {})], 500, 1),
+        # A wait longer than RATE_LIMIT_MAX_WAIT_S is not worth blocking the run on.
+        ([(429, {"retry-after": "60"}), (200, {})], 429, 1),
+    ],
+)
+async def test_only_short_rate_limits_are_retried(
+    responses: list[tuple[int, dict[str, str]]],
+    expected_status: int,
+    expected_calls: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    waits: list[float] = []
+
+    async def no_sleep(seconds: float) -> None:
+        waits.append(seconds)
+
+    monkeypatch.setattr(agent_module.asyncio, "sleep", no_sleep)
+    queue = list(responses)
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        status, headers = queue.pop(0)
+        return httpx2.Response(status, headers=headers)
+
+    transport = RateLimitRetryTransport(httpx2.MockTransport(handler))
+    async with httpx2.AsyncClient(transport=transport) as client:
+        response = await client.post("https://api.test/v1/responses", json={"x": 1})
+    assert response.status_code == expected_status
+    assert len(responses) - len(queue) == expected_calls
+    assert waits == ([0.01] if expected_calls == 2 else [])
+
+
+def test_context_budget_follows_the_primary_model_not_the_fallback() -> None:
+    # easy = local gemma alone; hard = gpt-6-luna backed by local qwen. The hard route must
+    # get the frontier budget, or gpt-6-luna loses results to clearing and re-fetches them.
+    models = build_route_models(_settings())
+    assert primary_system(models["easy"]) == "ollama"
+    assert primary_system(models["hard"]) == "openai"

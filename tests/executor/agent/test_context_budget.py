@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
 from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.messages import (
@@ -29,15 +30,32 @@ from relay.executor.agent.agent import ExecutorDeps, executor_capability
 READS = 8
 LINE_CHARS, LINES = 11_000, 5  # a fetched web page: few, very long lines (55k chars)
 HANDLE = re.compile(r"read_tool_result\(handle='([^']+)'")
-# ~24k tokens at 4 chars/token; the request that failed live was ~61.6k tokens (246k chars).
-MAX_REQUEST_CHARS = 96_000
+# The request that failed live was ~61.6k tokens (246k chars). Local primaries: ~24k tokens at
+# 4 chars/token. Frontier primaries get a larger budget (FRONTIER_* in agent.py): ~35k tokens.
+LOCAL_MAX_REQUEST_CHARS = 96_000
+FRONTIER_MAX_REQUEST_CHARS = 140_000
+
+
+class LocalFunctionModel(FunctionModel):
+    """A stub that reports itself as Ollama, so the run gets the local context budget."""
+
+    @property
+    def system(self) -> str:
+        return "ollama"
 
 
 class Out(BaseModel):
     answer: str
 
 
-def test_request_size_stays_bounded_after_many_large_tool_results(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("model_cls", "max_request_chars"),
+    [(LocalFunctionModel, LOCAL_MAX_REQUEST_CHARS), (FunctionModel, FRONTIER_MAX_REQUEST_CHARS)],
+    ids=["local", "frontier"],
+)
+def test_request_size_stays_bounded_after_many_large_tool_results(
+    tmp_path: Path, model_cls: type[FunctionModel], max_request_chars: int
+) -> None:
     for i in range(1, READS + 1):
         line = (f"page {i} " + "lorem ipsum " * 1000)[:LINE_CHARS]
         (tmp_path / f"page{i}.txt").write_text("\n".join([line] * LINES))
@@ -60,7 +78,7 @@ def test_request_size_stays_bounded_after_many_large_tool_results(tmp_path: Path
         return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, {"answer": "ok"})])
 
     agent = Agent(
-        FunctionModel(respond, profile={"supported_native_tools": frozenset()}),
+        model_cls(respond, profile={"supported_native_tools": frozenset()}),
         deps_type=ExecutorDeps,
         output_type=Out,
         capabilities=[executor_capability()],
@@ -68,4 +86,4 @@ def test_request_size_stays_bounded_after_many_large_tool_results(tmp_path: Path
     agent.run_sync("read every page", deps=ExecutorDeps(workspace=tmp_path))
 
     print(f"request sizes (chars): first {sizes[0]}, max {max(sizes)}, last {sizes[-1]}")
-    assert max(sizes) < MAX_REQUEST_CHARS, sizes
+    assert max(sizes) < max_request_chars, sizes

@@ -136,5 +136,6 @@ async def test_each_wake_publishes_a_fresh_profile_with_bearer_auth() -> None:
     assert [str(r.url) for r in posts] == ["http://delegator.test/v1/capabilities"] * 2
     assert {r.headers["Authorization"] for r in posts} == {"Bearer s3cret"}
     bodies = [httpx.Response(200, content=r.content).json() for r in posts]
-    assert [b["session_id"] for b in bodies] == [str(first), str(second)]
-    assert bodies[0]["can_run_local"] is True and bodies[0]["local_model"] == "gemma4:e4b"
+    # Each publish runs in its own background task, so the two POSTs may arrive in either order.
+    assert sorted(b["session_id"] for b in bodies) == sorted([str(first), str(second)])
+    assert all(b["can_run_local"] is True and b["local_model"] == "gemma4:e4b" for b in bodies)
