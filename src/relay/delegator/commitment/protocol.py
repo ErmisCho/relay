@@ -33,7 +33,7 @@ import asyncio
 import logging
 import time
 import uuid
-from collections.abc import Awaitable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal, Protocol
@@ -47,14 +47,19 @@ from relay.delegator.commitment.classify import (
     ASSENT_TIMEOUT_S,
     AssentLabel,
     AssentResult,
+    DirectiveLabel,
+    DirectiveResult,
     classify_assent,
+    classify_directive,
     score_ready,
 )
 from relay.delegator.commitment.readback import (
     ARTIFACT_NOUN,
+    ARTIFACT_PHRASE,
     build_readback,
     clean_field,
     normalise,
+    previous_assistant_text,
     readback_delivered,
 )
 from relay.delegator.contracts import (
@@ -84,6 +89,8 @@ RESERVATION_KEY = "commitment.reservation"
 PROPOSAL_STREAM_KEY = "commitment.proposal_stream"
 #: ``SessionState.extra`` key: a note owed to the model on the next user turn.
 NEXT_NOTE_KEY = "commitment.next_note"
+#: ``SessionState.extra`` key: the current user turn as a :class:`DirectRequest`.
+REQUEST_KEY = "commitment.request"
 
 #: A reserved dispatch commits this long after the session's latest user request (the longest
 #: live ASR revision gap measured was 2.79 s).
@@ -123,6 +130,21 @@ class AssentRecord:
     classified_at: datetime
 
 
+@dataclass(frozen=True)
+class DirectRequest:
+    """A fresh user request (not an answer to a read-back) that may start work directly.
+
+    Set by :meth:`CommitmentHook.before_model`; ``classify`` (bound to the hook's assent model)
+    labels it against a proposed goal. Only a turn with this record can skip the read-back.
+    """
+
+    user_turn_index: int
+    user_turn_id: uuid.UUID | None
+    utterance: str
+    previous: str
+    classify: Callable[[str], Awaitable[DirectiveResult]]
+
+
 # --- per-turn notes ----------------------------------------------------------------------
 
 NOTE_AFFIRMATIVE = (
@@ -150,6 +172,11 @@ NOTE_NOT_AFFIRMATIVE: dict[AssentLabel, str] = {
 NOTE_ALREADY_STARTING = (
     "Commitment protocol: the work the user agreed to is already starting. Do not call "
     "dispatch_task or propose_commitment for it again; just confirm briefly that it is starting."
+)
+NOTE_STARTING_AND_NEW = (
+    'Commitment protocol: the earlier work ("{goal}") is already starting; do not propose it '
+    "again. If the user's latest message asks for something new, call propose_commitment for "
+    "that as separate work."
 )
 NOTE_CANCELLED: dict[AssentLabel, str] = {
     label: (
@@ -180,8 +207,12 @@ Commitment protocol (starting background work):
 - When the idea feels ready (the goal and what to leave out are clear and the user wants it \
 done), call propose_commitment with the goal, what is explicitly excluded and the artifact \
 kind. Do not just say you will do it.
-- propose_commitment speaks its confirmation question to the user itself and ends your turn, \
-so say nothing before calling it. Then wait for the user's answer.
+- Do not announce or describe the handoff before calling propose_commitment. When the user \
+plainly told you to do the work, it starts right away and tells them so itself. When they were \
+only asking for ideas, suggestions or your opinion, it starts nothing and you answer them in \
+your own words. Rarely it speaks a confirmation question instead; then wait for the answer. \
+When the same message also asks something you can answer yourself (advice, an opinion, an \
+explanation), put that one-sentence answer in propose_commitment's answer_first.
 - Call dispatch_task only when a system note tells you the user agreed. The server decides; if \
 it rejects the call, do not retry and do not pretend the work started.
 - Never claim work has started, is running or will be done unless dispatch_task succeeded.
@@ -200,6 +231,14 @@ def _rejected(why: str) -> ToolResult:
         ),
         rejected=True,
     )
+
+
+NOT_YET_RESULT = (
+    "NOT started and nothing was said to the user: they are still exploring (asking for ideas, "
+    "suggestions, feedback or your opinion), not asking you to start work. Answer them now in "
+    "your own words. If a task would help, describe it in one short sentence and ask whether "
+    "they want you to start it; call propose_commitment again only once they ask for it."
+)
 
 
 ALREADY_STARTED_RESULT = ToolResult(
@@ -227,9 +266,11 @@ class ProposeCommitmentTool:
 
     name = "propose_commitment"
     description = (
-        "Propose handing the current idea to a background worker. Call this instead of saying "
-        "you will do the work. Nothing starts until the user explicitly agrees to the "
-        "confirmation question this tool speaks to them itself; say nothing before calling it."
+        "Hand the current idea to a background worker. Call this instead of saying you will do "
+        "the work, and do not describe the handoff yourself. If the user plainly told you to do "
+        "it, the server starts it at once; otherwise it speaks a confirmation question and "
+        "nothing starts until the user explicitly agrees. Answer any other part of the message "
+        "in answer_first."
     )
     parameters: dict[str, Any] = {
         "type": "object",
@@ -254,16 +295,41 @@ class ProposeCommitmentTool:
                     "code in a project."
                 ),
             },
+            "answer_first": {
+                "type": "string",
+                "description": (
+                    "Optional. One short spoken statement (never a question) answering any part "
+                    "of the user's "
+                    "message that needs no handoff (advice, an opinion, an explanation), e.g. "
+                    "'Singing starts with breath control and a weekly lesson.' Spoken before "
+                    "the confirmation question. Omit when the whole message is the handoff. "
+                    "Never facts about this computer, the weather or other live data, not even "
+                    "from earlier in the conversation: those come only from the fresh check."
+                ),
+            },
         },
         "required": ["goal", "scope_excludes", "artifact_kind"],
         "additionalProperties": False,
     }
 
+    def __init__(
+        self, start: StartTask | None = None, *, grace_s: float = DISPATCH_GRACE_S
+    ) -> None:
+        self._start: StartTask = start or start_task
+        self._grace_s = grace_s
+
     async def __call__(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         if (refused := scope_guard(args, ctx)) is not None:
             return refused
         state = ctx.state
-        if _active_reservation(state) is not None:
+        active = _active_reservation(state)
+        # An instructed task from an EARLIER turn does not block new work; the same turn's does.
+        # ponytail: only the newest reservation stays under RESERVATION_KEY, so a later "no" can
+        # cancel just that one; the earlier task commits after its own grace. Track a list if
+        # users start retracting the earlier of two quick requests.
+        if active is not None and not (
+            active.direct and active.user_turn_index < state.user_turn_index
+        ):
             return _rejected(
                 "the work the user just agreed to is already starting; do not propose it again."
             )
@@ -288,6 +354,7 @@ class ProposeCommitmentTool:
                 "what should be left out, then call propose_commitment again."
             )
         readback = build_readback(goal, excludes, decision.artifact_kind)
+        answer = clean_field(args.get("answer_first"))[:300]
         # A newer proposal replaces the older one; any assent recorded for it is void.
         state.pending_proposal = PendingProposal(
             goal=goal,
@@ -300,6 +367,19 @@ class ProposeCommitmentTool:
         )
         state.extra.pop(ASSENT_KEY, None)
         p = state.pending_proposal
+        judged = await self._directive(ctx, p)
+        if judged is not None and judged[1].label is DirectiveLabel.EXPLORING:
+            # Still exploring (asking for ideas, feedback, opinions): no read-back, the model
+            # answers in its own words. Only a failed check falls back to the read-back.
+            state.pending_proposal = None
+            log.info("commitment: proposal skipped, user still exploring: %r", judged[0].utterance)
+            return ToolResult(content=NOT_YET_RESULT)
+        directive = judged
+        if directive is not None:
+            p.readback_text = (
+                f"Started directly on the user's instruction: I'll {goal}, leaving out "
+                f"{excludes}, and I'll leave it as {ARTIFACT_PHRASE[decision.artifact_kind]}."
+            )
         emit(
             state.session_id,
             "proposal",
@@ -310,14 +390,18 @@ class ProposeCommitmentTool:
                 "scope_excludes": p.scope_excludes,
                 "artifact_kind": p.artifact_kind,
                 "readback": p.readback_text,
+                "direct": directive is not None,
             },
         )
         log.info(
-            "commitment: proposal %s session=%s turn=%d",
-            state.pending_proposal.proposal_id,
+            "commitment: proposal %s session=%s turn=%d direct=%s",
+            p.proposal_id,
             state.session_id,
             state.user_turn_index,
+            directive is not None,
         )
+        if directive is not None:
+            return self._start_now(ctx, p, *directive, answer=answer)
         # Spoken by the server, not the model: a model round after the tool call repeated
         # earlier sentences around the read-back and appended a report announcement to it.
         return ToolResult(
@@ -325,7 +409,75 @@ class ProposeCommitmentTool:
                 f'Proposal recorded, NOT started. The confirmation question "{readback}" was '
                 "spoken to the user; wait for their answer."
             ),
-            speak=readback,
+            # The read-back stays exactly what the yes answers; the other part of the user's
+            # message is answered in front of it (models rarely speak alongside a tool call).
+            speak=f"{answer}. {readback}" if answer else readback,
+        )
+
+    async def _directive(
+        self, ctx: ToolContext, pending: PendingProposal
+    ) -> tuple[DirectRequest, DirectiveResult] | None:
+        """The request and its judged label (directive, or a confident exploring).
+
+        Judged server-side from the user's words, never from the model's arguments. None (no
+        fresh request, direct starts off, or the check failed) keeps the read-back.
+        """
+        state = ctx.state
+        request = state.extra.get(REQUEST_KEY)
+        if (
+            not ctx.settings.direct_dispatch
+            or not isinstance(request, DirectRequest)
+            or request.user_turn_index != state.user_turn_index
+        ):
+            return None
+        result = await request.classify(pending.goal)
+        log.info(
+            "commitment: directive label=%s source=%s latency_ms=%d utterance=%r",
+            result.label.value,
+            result.source,
+            result.latency_ms,
+            request.utterance,
+        )
+        return None if result.source == "error" else (request, result)
+
+    def _start_now(
+        self,
+        ctx: ToolContext,
+        pending: PendingProposal,
+        request: DirectRequest,
+        result: DirectiveResult,
+        answer: str = "",
+    ) -> ToolResult:
+        """Reserve the proposal with the request itself as the recorded assent.
+
+        The grace window still applies: a re-send that is no longer a directive cancels it.
+        """
+        state = ctx.state
+        record = AssentRecord(
+            proposal_id=pending.proposal_id,
+            user_turn_index=state.user_turn_index,
+            user_turn_id=request.user_turn_id or ctx.user_turn_id,
+            utterance=request.utterance,
+            label=AssentLabel.AFFIRMATIVE,
+            source=f"directive:{result.source}",
+            delivered=True,
+            classified_at=datetime.now(UTC),
+        )
+        _assent(state, pending.proposal_id, record.user_turn_id, record.utterance, record.label)
+        state.pending_proposal = None
+        state.extra.setdefault(DISPATCHED_KEY, set()).add(pending.proposal_id)
+        state.extra[RESERVATION_KEY] = Reservation(
+            pending, record, state, ctx.db, self._start, self._grace_s, direct=True
+        )
+        noun = ARTIFACT_NOUN[ArtifactKind(pending.artifact_kind)]
+        return ToolResult(
+            content=(
+                "Started: the user plainly asked for this, so it is starting without a "
+                "confirmation question. Do not call dispatch_task or propose it again."
+            ),
+            # answer_first rides in front here too, or a mixed message loses its other part.
+            speak=(f"{answer}. " if answer else "")
+            + f"On it. I'll let you know when the {noun} is ready.",
         )
 
 
@@ -432,8 +584,12 @@ class Reservation:
         db: async_sessionmaker[AsyncSession],
         start: StartTask,
         grace_s: float,
+        *,
+        direct: bool = False,
     ) -> None:
         self.proposal = proposal
+        # Started on a directive request rather than a spoken yes to a read-back.
+        self.direct = direct
         self.record = record
         self.user_turn_index = record.user_turn_index
         self.status: ReservationStatus = "reserved"
@@ -668,6 +824,41 @@ class CommitmentHook:
         )
         return result
 
+    def _offer_direct(self, ctx: TurnContext, utterance: str) -> None:
+        """Mark this fresh request (not a reply to a read-back) as a direct-start candidate."""
+        previous = previous_assistant_text(ctx.messages) or ""
+        settings = ctx.settings
+
+        async def classify(goal: str) -> DirectiveResult:
+            model = self._model("assent", settings)
+            return await classify_directive(
+                model, previous, utterance, goal, timeout=self._assent_timeout_s
+            )
+
+        ctx.state.extra[REQUEST_KEY] = DirectRequest(
+            ctx.state.user_turn_index, ctx.user_turn_id, utterance, previous, classify
+        )
+
+    async def _redirect(self, ctx: TurnContext, goal: str, utterance: str) -> AssentResult:
+        """Directive check of a re-sent request, as an assent result (directive = yes)."""
+        previous = previous_assistant_text(ctx.messages) or ""
+        model = self._model("assent", ctx.settings)
+        result = await classify_directive(
+            model, previous, utterance, goal, timeout=self._assent_timeout_s
+        )
+        log.info(
+            "commitment: re-sent directive label=%s source=%s utterance=%r",
+            result.label.value,
+            result.source,
+            utterance,
+        )
+        label = (
+            AssentLabel.AFFIRMATIVE
+            if result.label is DirectiveLabel.DIRECTIVE
+            else AssentLabel.NEW_INFORMATION
+        )
+        return AssentResult(label, f"directive:{result.source}", result.latency_ms)
+
     async def before_model(self, ctx: TurnContext) -> list[str]:
         # The conversation is active: no ready score may compete with it for the model.
         self._cancel_timer(ctx.state.session_id)
@@ -680,6 +871,7 @@ class CommitmentHook:
         if (owed := state.extra.pop(NEXT_NOTE_KEY, None)) is not None:
             notes.append(owed)
         state.extra.pop(ASSENT_KEY, None)
+        state.extra.pop(REQUEST_KEY, None)
         utterance = content_text(ctx.messages[-1].get("content"))
 
         res = state.extra.get(RESERVATION_KEY)
@@ -689,17 +881,34 @@ class CommitmentHook:
             # while the classifier is still thinking.
             res.hold()
             try:
-                result = await self._classify(ctx, res.proposal.readback_text, utterance)
+                if res.direct and state.user_turn_index == res.user_turn_index:
+                    # A re-send/revision of the request that started it: still a directive?
+                    result = await self._redirect(ctx, res.proposal.goal, utterance)
+                else:
+                    result = await self._classify(ctx, res.proposal.readback_text, utterance)
             except BaseException:  # raised or request cancelled: never leave a hold behind
                 res.cancel("classification of a later request did not finish")
                 raise
-            _assent(state, res.proposal.proposal_id, ctx, utterance, result.label)
+            _assent(state, res.proposal.proposal_id, ctx.user_turn_id, utterance, result.label)
             if res.status != "reserved":
                 return [*notes, NOTE_CANCELLED[AssentLabel.HEDGE]]
             follow_up = _is_follow_up(ctx.messages, res, state)
             if result.label is AssentLabel.AFFIRMATIVE:
                 res.reaffirm(_record(res.proposal, state, ctx, utterance, result), now)
                 return [*notes, NOTE_ALREADY_STARTING]
+            if (
+                res.direct
+                and state.user_turn_index > res.user_turn_index
+                and result.label is not AssentLabel.NEGATIVE
+                and result.source != "error"
+            ):
+                # A NEW request while an instructed task waits out its grace ("what models can
+                # my PC run? ... by the way, the weather?"): keep that task and let this request
+                # start as its own work. Judged only as a reaction to the first task, it was
+                # dropped (2/4 live runs). A "no"/"wait" still cancels (above/below).
+                res.reaffirm(res.record, now)
+                self._offer_direct(ctx, utterance)
+                return [*notes, NOTE_STARTING_AND_NEW.format(goal=res.proposal.goal)]
             if follow_up and result.label is AssentLabel.HEDGE and result.source != "error":
                 # A pleasantry after the spoken confirmation ("Thanks.") is not a retraction.
                 res.reaffirm(res.record, now)
@@ -712,11 +921,13 @@ class CommitmentHook:
 
         pending = state.pending_proposal
         if pending is None:
+            self._offer_direct(ctx, utterance)
             return notes
         if state.user_turn_index != pending.proposed_at_user_turn + 1:
             state.pending_proposal = None
             _dropped(state, pending.proposal_id, "expired")
             log.info("commitment: proposal %s expired", pending.proposal_id)
+            self._offer_direct(ctx, utterance)
             return notes
         streamed = state.extra.get(PROPOSAL_STREAM_KEY, {}).get(pending.proposal_id) is True
         if not streamed or not readback_delivered(ctx.messages, pending.readback_text):
@@ -725,10 +936,14 @@ class CommitmentHook:
             log.info("commitment: proposal %s read-back not delivered", pending.proposal_id)
             return [*notes, NOTE_INTERRUPTED]
         result = await self._classify(ctx, pending.readback_text, utterance)
-        _assent(state, pending.proposal_id, ctx, utterance, result.label)
+        _assent(state, pending.proposal_id, ctx.user_turn_id, utterance, result.label)
         if result.label is not AssentLabel.AFFIRMATIVE:
             state.pending_proposal = None
             _dropped(state, pending.proposal_id, "not_affirmative")
+            if result.label is not AssentLabel.NEGATIVE:
+                # "Yes, and what I want is X, write it up" is a new instruction, not a no:
+                # a re-proposal from it may start directly.
+                self._offer_direct(ctx, utterance)
             return [*notes, NOTE_NOT_AFFIRMATIVE[result.label]]
         state.extra[ASSENT_KEY] = _record(pending, state, ctx, utterance, result)
         return [*notes, NOTE_AFFIRMATIVE]
@@ -900,7 +1115,7 @@ def _dropped(state: SessionState, proposal_id: uuid.UUID, reason: str) -> None:
 def _assent(
     state: SessionState,
     proposal_id: uuid.UUID,
-    ctx: TurnContext,
+    turn_id: uuid.UUID | None,
     utterance: str,
     label: AssentLabel,
 ) -> None:
@@ -909,7 +1124,7 @@ def _assent(
         "assent",
         {
             "proposal_id": str(proposal_id),
-            "turn_id": str(ctx.user_turn_id) if ctx.user_turn_id is not None else None,
+            "turn_id": str(turn_id) if turn_id is not None else None,
             "label": label.value,
             "utterance": utterance,
         },

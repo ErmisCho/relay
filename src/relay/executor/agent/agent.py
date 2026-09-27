@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import sys
 import threading
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -51,7 +52,10 @@ from pydantic_ai_harness.tool_output_limits import Band, ToolOutputLimits, Trunc
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from relay.config import Settings, get_settings, parse_model_ref
+from relay.executor.agent.docker_shell import docker_shell
+from relay.executor.agent.hardware import machine_hardware
 from relay.executor.agent.sandbox import sandboxed_shell
+from relay.executor.agent.weather import current_weather
 from relay.executor.routing import LABELS, Difficulty
 from relay.executor.workspace import repo_root
 
@@ -194,18 +198,22 @@ You are relay's executor. You produce ONE result for the user to review later. Y
 post, book, buy, publish, push or merge anything: no git push, no pull requests, no messages.
 
 Method:
+0. Quick lookups come first and fast: when the goal only needs what machine_hardware and
+   current_weather return, call the ones it needs in the same step and then give the result.
+   No plan and no toolbox for those.
 1. Decide where the answer lives. For facts on the web, use your web search tool to find
    relevant, reputable pages, then web_fetch to read the best. When the answer is on this
-   computer (hardware, operating system, memory, disk space, installed software, settings),
-   web search is not needed: if a shell tool is available, inspect it with read-only commands,
-   e.g. `sw_vers`, `uname -a`, `sysctl -n machdep.cpu.brand_string hw.memsize hw.ncpu`,
-   `system_profiler SPHardwareDataType SPDisplaysDataType`, `df -h`. If no shell tool is
-   offered, say you could not inspect it; never guess. Only read; never change settings,
-   install, delete or kill anything. The shell has no network.
-   Live facts (weather, news, prices) come from the web: search, then web_fetch a page that
-   shows the actual figures (for weather, e.g. https://wttr.in/<city>?format=j1). When the
-   goal names no place, web_fetch https://ipinfo.io/json for this computer's approximate
-   city, use it, and say in the report that the place was inferred.
+   computer, web search is not needed. For its hardware (chip, GPU, memory, which local models
+   fit) always call machine_hardware. For anything else on it (operating system, disk space,
+   installed software, settings), inspect it with read-only shell commands if a shell tool is
+   available and it runs on this computer, e.g. `sw_vers`, `uname -a`, `df -h`. A shell
+   that runs in a Linux container sees the container, not this computer: then say what you
+   could not inspect; never guess. Only read; never change settings, install, delete or kill
+   anything. The shell has no network.
+   For the weather call current_weather; leave its location empty when the goal names no
+   place, and say in the report that the place was inferred from the IP address. Other live
+   facts (news, prices) come from the web: search, then web_fetch a page that shows the
+   actual figures.
    Older tool results are cleared as you go: once a command or page gave you the figures you
    need, write them into your plan or a file instead of running it again.
 2. Your working folder is this idea's project folder; keep any files you write inside it.
@@ -218,6 +226,11 @@ Method:
    A report built only from this computer's commands has no URLs: leave `sources` empty and
    name the commands you ran in the body. Do not put a Sources section inside body_markdown;
    it is added automatically.
+6. toolbox/ in your working folder holds scripts that earlier tasks wrote and saved. Read
+   toolbox/INDEX.md first and reuse a script when it fits. When no tool does what you need
+   and a shell tool is available, write a small script (Python or sh) that does it and run
+   it. If it worked and could help later tasks, save it in toolbox/ and add one line to
+   toolbox/INDEX.md: `file - what it does - how to run it`. Scripts have no network.
 """
 
 
@@ -300,6 +313,11 @@ def workspace_capabilities(
                 coding.append(shell)
         elif not isinstance(c, ClearToolResults | ToolOutputLimits):
             coding.append(c)  # Coder's own, looser context limits are replaced below
+    if shell is None and sys.platform != "darwin" and (container := docker_shell(root)):
+        # Windows/Linux: sandbox-exec is macOS-only, so commands run in a Docker container.
+        coding.append(container)
+    # Built in, not left to the shell: a container cannot see the host's hardware.
+    machine = Capability[ExecutorDeps](tools=[machine_hardware, current_weather])
     # The Researcher capability minus its sub-agents and its output limits: those spill a long
     # result and add `read_tool_result`, whose returns are exempt from every limit, so a model
     # reading a spilled page back got it whole, and it was never cleared. Same instructions.
@@ -319,7 +337,7 @@ def workspace_capabilities(
     # a DBOS resume after a worker kill replays tool results but starts with an empty plan;
     # the model re-plans. Revisit with PostgresPlanStore if resumed runs start losing steps.
     planning = Planning[ExecutorDeps](tools=["write_plan"])
-    return [*research, planning, *coding, *context_limits(frontier=frontier)]
+    return [*research, machine, planning, *coding, *context_limits(frontier=frontier)]
 
 
 class _TruncateToolOutputs(ToolOutputLimits[ExecutorDeps]):

@@ -71,12 +71,6 @@ PREVIOUS_TURN_WAIT_S = 1.0
 DRAIN_TIMEOUT_S = 10.0
 # Optional context I/O must not leave a voice request waiting on database timeouts.
 CONTEXT_IO_TIMEOUT_S = 0.5
-HARDWARE_TOOL_NOTE = (
-    "For questions about this computer's specs, processor, GPU, or RAM, call "
-    "hardware_capabilities before answering. It reads the machine running Relay's backend, "
-    "which may differ from the voice client. Report only returned facts. This read-only "
-    "lookup needs no commitment or background task."
-)
 
 
 class ChatCompletionRequest(BaseModel):
@@ -506,7 +500,7 @@ class DelegatorService:
             if self._router is not None and state.pending_proposal is None
             else None
         )
-        notes: list[str] = [HARDWARE_TOOL_NOTE] if "hardware_capabilities" in self.registry else []
+        notes: list[str] = []
         for hook in self.hooks:
             if getattr(hook, "safety_critical", False):
                 try:
@@ -671,18 +665,6 @@ class DelegatorService:
                         turn.first_token_at = time.perf_counter()
                     turn.text_parts.append(text)
                     yield text
-                    return
-                if all(
-                    getattr(self.registry.get(call.name), "direct_response", False)
-                    for call in internal
-                ) and all(not result.content.startswith("Error:") for result in results):
-                    for i, result in enumerate(results):
-                        if turn.first_token_at is None:
-                            turn.first_token_at = time.perf_counter()
-                        # A space between answers, or TTS reads "…Instruct.Based on…".
-                        text = result.content if i == 0 else f" {result.content}"
-                        turn.text_parts.append(text)
-                        yield text
                     return
                 # Tool results (a commitment read-back, recall, status) are answered by the
                 # normal model: small_local covers plain conversation only.

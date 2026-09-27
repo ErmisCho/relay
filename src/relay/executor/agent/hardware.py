@@ -1,8 +1,7 @@
-"""``hardware_capabilities`` internal tool: local hardware profile + a local-LLM recommendation.
+"""Executor tool ``machine_hardware``: this computer's hardware + a local-LLM recommendation.
 
-Deliberate scope expansion beyond SPEC.md's two verticals (user decision,
-2026-09-26): answers directly in conversation, never through the commitment
-protocol — there is no artifact to dispatch for "what can my machine run".
+Built in rather than left to the shell: on Windows/Linux the shell runs in a Docker container,
+which sees the container's virtual machine, not the host's chip, GPU or memory.
 """
 
 from __future__ import annotations
@@ -13,9 +12,6 @@ import os
 import platform
 import subprocess
 import sys
-from typing import Any
-
-from relay.delegator.contracts import ToolContext, ToolResult
 
 _GIB = 1024**3
 
@@ -133,34 +129,22 @@ def recommend_models(total_gb: float) -> str:
     return "Only a small local model like llama3.2:1b fits well."
 
 
-class HardwareCapabilitiesTool:
-    """``InternalTool`` reporting this machine's hardware profile and a local-LLM recommendation."""
-
-    name = "hardware_capabilities"
-    direct_response = True
-    description = (
-        "Report this machine's hardware profile (chip, memory, GPU) and recommend which local "
-        "LLMs fit it."
+async def machine_hardware() -> str:
+    """Hardware of the computer relay runs on: chip, GPU, total memory, and which local LLM
+    sizes fit it. Use this for any question about this computer's hardware; shell commands
+    cannot see it."""
+    chip, gpu, mem_bytes = await asyncio.gather(
+        asyncio.to_thread(chip_name),
+        asyncio.to_thread(gpu_description),
+        asyncio.to_thread(total_memory_bytes),
     )
-    parameters: dict[str, Any] = {
-        "type": "object",
-        "properties": {},
-        "additionalProperties": False,
-    }
-
-    async def __call__(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-        chip, gpu, mem_bytes = await asyncio.gather(
-            asyncio.to_thread(chip_name),
-            asyncio.to_thread(gpu_description),
-            asyncio.to_thread(total_memory_bytes),
+    if mem_bytes is None:
+        return (
+            f"This machine reports a {chip} chip and GPU: {gpu}, but its memory size is "
+            "unreadable."
         )
-        if mem_bytes is None:
-            return ToolResult(
-                f"This machine reports a {chip} chip and GPU: {gpu}, but I can't read its "
-                "memory size here."
-            )
-        total_gb = mem_bytes / _GIB
-        return ToolResult(
-            f"This machine has a {chip} chip, GPU: {gpu}, and about {total_gb:.0f} GB of memory. "
-            + recommend_models(total_gb)
-        )
+    total_gb = mem_bytes / _GIB
+    return (
+        f"This machine has a {chip} chip, GPU: {gpu}, and about {total_gb:.0f} GB of memory. "
+        + recommend_models(total_gb)
+    )

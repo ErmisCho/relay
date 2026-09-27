@@ -245,6 +245,22 @@ async def test_readback_is_spoken_by_the_server_verbatim_and_alone(
     assert len(await c.commitments()) == 1
 
 
+async def test_answer_first_is_spoken_before_the_readback_and_yes_still_dispatches(
+    db: async_sessionmaker[AsyncSession],
+) -> None:
+    # Live bug: "become a singer? oh, and the weather?" proposed the weather and dropped the
+    # singer question (0/5), because the model does not speak alongside a tool call. The
+    # answer now rides in the proposal; the read-back itself - what the yes answers - is
+    # unchanged, and it must still END the spoken turn for the yes to count.
+    c = build_convo(db)
+    answer = "Singing starts with breath control and a weekly lesson."
+    spoken = await c.turn("sing? and research it", propose(c.goal, answer_first=answer))
+    assert spoken == f"{answer.rstrip('.')}. {c.readback()}"
+    await c.turn("yes", dispatch(), text("ok"))
+    (commitment,) = await c.commitments()
+    assert commitment.readback_text == c.readback()
+
+
 async def test_readback_delivery_ignores_case_and_punctuation(
     db: async_sessionmaker[AsyncSession],
 ) -> None:

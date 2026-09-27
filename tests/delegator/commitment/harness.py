@@ -293,15 +293,18 @@ def build_convo(
     client = StubDBOSClient()
     results: list[str] = []
     registry = ToolRegistry()
-    registry.register(RecordingTool(ProposeCommitmentTool(), results))
+    start = functools.partial(start_task, client=client)
+    registry.register(RecordingTool(ProposeCommitmentTool(start, grace_s=grace_s), results))
     registry.register(
         RecordingTool(
-            DispatchTaskTool(functools.partial(start_task, client=client), grace_s=grace_s),
+            DispatchTaskTool(start, grace_s=grace_s),
             results,
         )
     )
     hook = hook or CommitmentHook(assent_model=assent, score_ready=False)
     chat = ScriptedChatModel([])
+    # These tests pin the read-back protocol; direct starts are opted into per test.
+    settings.setdefault("direct_dispatch", False)
     app = create_app(
         make_settings(**settings),
         chat_model=chat,
@@ -316,8 +319,12 @@ def build_convo(
     )
 
 
-def propose(goal: str, excludes: str = "pricing", artifact: str = "document") -> list[ChatDelta]:
+def propose(
+    goal: str, excludes: str = "pricing", artifact: str = "document", answer_first: str = ""
+) -> list[ChatDelta]:
     args = {"goal": goal, "scope_excludes": excludes, "artifact_kind": artifact}
+    if answer_first:
+        args["answer_first"] = answer_first
     return tool_call("propose_commitment", json.dumps(args))
 
 

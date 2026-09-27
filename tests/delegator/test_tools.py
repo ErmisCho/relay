@@ -132,25 +132,29 @@ async def test_internal_tool_runs_server_side_and_never_streams(
     assert chunks[-1]["choices"][0]["finish_reason"] == "stop"
 
 
-async def test_wiring_registers_hardware_and_weather_tools(
+async def test_delegator_offers_task_tools_but_no_work_tools(
     dead_db: async_sessionmaker[AsyncSession],
 ) -> None:
-    """The real ``build_registry()`` wiring exposes both new tools end-to-end, not just a
-    hand-built ``ToolRegistry`` in a unit test."""
+    """The real ``build_registry()``: the Delegator talks, proposes and dispatches; the work
+    itself (hardware, weather, research, code) is the executor's. Catches a work tool
+    creeping back into the Delegator, where it would answer without the read-back + yes."""
     registry = build_registry()
-    model = ScriptedChatModel([tool_call("hardware_capabilities", "{}")])
+    model = ScriptedChatModel([text("Hi.")])
     app = create_app(
         make_settings(), chat_model=model, registry=registry, hooks=[], sessionmaker=dead_db
     )
-    resp = await post(app, load_request())
-
-    assert resp.status_code == 200
+    assert (await post(app, load_request())).status_code == 200
     tool_names = {t["function"]["name"] for t in model.calls[0]["tools"]}
-    assert {"hardware_capabilities", "get_weather", "get_status"} <= tool_names
-    spoken = "".join(
-        chunk["choices"][0]["delta"].get("content", "") for chunk in parse_sse(resp.content)
-    )
-    assert "GPU:" in spoken and "memory" in spoken
+    assert {"propose_commitment", "dispatch_task", "get_status"} <= tool_names
+    assert not tool_names & {
+        "hardware_capabilities",
+        "get_weather",
+        "machine_hardware",
+        "current_weather",
+        "run_command",
+        "web_search",
+        "web_fetch",
+    }
 
 
 async def test_same_round_tools_run_concurrently_and_keep_order_on_failure(
@@ -178,40 +182,16 @@ async def test_same_round_tools_run_concurrently_and_keep_order_on_failure(
     assert "second failed internally" in results[1]["content"]
 
 
-@dataclass
-class DirectTool(CoordinatedTool):
-    direct_response: bool = True
-
-
-async def test_two_direct_answers_are_spoken_with_a_space_between(
-    dead_db: async_sessionmaker[AsyncSession],
-) -> None:
-    """Compound turn ("specs? and the weather?"): both verbatim answers, not "…first.second"."""
-    started: list[str] = []
-    both = asyncio.Event()
-    model = ScriptedChatModel([two_tool_calls()])
-    app = create_app(
-        make_settings(),
-        chat_model=model,
-        registry=registry_with(
-            DirectTool(name="first", started=started, both_started=both),
-            DirectTool(name="second", started=started, both_started=both),
-        ),
-        hooks=[],
-        sessionmaker=dead_db,
-    )
-    chunks = parse_sse((await post(app, load_request())).content)
-    spoken = "".join(c["choices"][0]["delta"].get("content", "") for c in chunks)
-    assert spoken == "result:first result:second"
-
-
 async def test_invalid_internal_tool_arguments_are_reported_to_the_model(
     dead_db: async_sessionmaker[AsyncSession],
 ) -> None:
     tool = SecretTool()
     model = ScriptedChatModel([tool_call("secret_lookup", '{"q": "unterminated'), text("Hmm.")])
     app = create_app(
-        make_settings(), chat_model=model, registry=registry_with(tool), hooks=[],
+        make_settings(),
+        chat_model=model,
+        registry=registry_with(tool),
+        hooks=[],
         sessionmaker=dead_db,
     )
     resp = await post(app, load_request())
@@ -228,7 +208,10 @@ async def test_tool_loop_is_capped(dead_db: async_sessionmaker[AsyncSession]) ->
     ]
     model = ScriptedChatModel([*looping, text("Okay.")])
     app = create_app(
-        make_settings(), chat_model=model, registry=registry_with(tool), hooks=[],
+        make_settings(),
+        chat_model=model,
+        registry=registry_with(tool),
+        hooks=[],
         sessionmaker=dead_db,
     )
     chunks = parse_sse((await post(app, {**load_request(), "tool_choice": "required"})).content)
