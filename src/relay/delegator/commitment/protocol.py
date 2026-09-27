@@ -180,8 +180,8 @@ Commitment protocol (starting background work):
 - When the idea feels ready (the goal and what to leave out are clear and the user wants it \
 done), call propose_commitment with the goal, what is explicitly excluded and the artifact \
 kind. Do not just say you will do it.
-- propose_commitment returns a confirmation question. Speak it exactly, word for word, and \
-nothing else in that turn. Then wait for the user's answer.
+- propose_commitment speaks its confirmation question to the user itself and ends your turn, \
+so say nothing before calling it. Then wait for the user's answer.
 - Call dispatch_task only when a system note tells you the user agreed. The server decides; if \
 it rejects the call, do not retry and do not pretend the work started.
 - Never claim work has started, is running or will be done unless dispatch_task succeeded.
@@ -229,7 +229,7 @@ class ProposeCommitmentTool:
     description = (
         "Propose handing the current idea to a background worker. Call this instead of saying "
         "you will do the work. Nothing starts until the user explicitly agrees to the "
-        "confirmation question this tool returns, which you must speak word for word."
+        "confirmation question this tool speaks to them itself; say nothing before calling it."
     )
     parameters: dict[str, Any] = {
         "type": "object",
@@ -318,11 +318,14 @@ class ProposeCommitmentTool:
             state.session_id,
             state.user_turn_index,
         )
+        # Spoken by the server, not the model: a model round after the tool call repeated
+        # earlier sentences around the read-back and appended a report announcement to it.
         return ToolResult(
             content=(
-                "Proposal recorded, NOT started. Now say exactly this, word for word, and "
-                f'nothing else: "{readback}"'
-            )
+                f'Proposal recorded, NOT started. The confirmation question "{readback}" was '
+                "spoken to the user; wait for their answer."
+            ),
+            speak=readback,
         )
 
 

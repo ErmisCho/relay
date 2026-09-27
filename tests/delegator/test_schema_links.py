@@ -63,13 +63,15 @@ async def test_token_usage_is_summed_when_reported_and_absent_otherwise(
     db: async_sessionmaker[AsyncSession],
 ) -> None:
     c = build_convo(db)
-    tool_round = propose(c.goal)
+    # A rejected proposal (no exclusion) keeps the model going for a second round; a valid one
+    # would end the turn with the server-spoken read-back after a single model call.
+    tool_round = propose(c.goal, excludes="  ")
     tool_round[-1] = UsageDelta(
         finish_reason="tool_calls",
         usage={"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
     )
     reply = [
-        ChatDelta(content=c.readback()),
+        ChatDelta(content="What should I leave out?"),
         UsageDelta(finish_reason="stop", usage={"input_tokens": 20, "output_tokens": 7}),
     ]
     await c.turn("Research bike locks for me, skip pricing.", tool_round, reply)

@@ -26,7 +26,7 @@ from relay.store.db import create_engine, create_sessionmaker
 from relay.store.models import Idea, RouterDecision, Turn
 
 from ..conftest import ScriptedChatModel, make_settings, post
-from .harness import FakeLabelModel, build_convo, dispatch, propose, text
+from .harness import FakeLabelModel, build_convo, dispatch, propose, same_round, text
 
 
 @pytest.fixture
@@ -86,7 +86,7 @@ async def test_rejected_early_dispatch_keeps_the_proposal_for_a_real_assent(
 ) -> None:
     c = build_convo(db)
     # The model jumps the gun on the proposal turn: rejected, but the user can still agree.
-    await c.turn("research it", propose(c.goal), dispatch(), text(c.readback()))
+    await c.turn("research it", same_round(propose(c.goal), dispatch()))
     assert c.tool_results()[-1].startswith("REJECTED")
     await c.turn("yes please", dispatch(), text("ok"))
     assert len(await c.commitments()) == 1
@@ -118,7 +118,7 @@ async def test_dispatch_in_the_same_turn_as_the_proposal_is_rejected(
     db: async_sessionmaker[AsyncSession],
 ) -> None:
     c = build_convo(db)
-    await c.turn("research it", propose(c.goal), dispatch(), text(c.readback()))
+    await c.turn("research it", same_round(propose(c.goal), dispatch()))
     assert c.tool_results()[-1].startswith("REJECTED")
     await c.assert_nothing_dispatched()
 
@@ -127,14 +127,11 @@ async def test_model_claiming_assent_in_its_own_text_does_not_dispatch(
     db: async_sessionmaker[AsyncSession],
 ) -> None:
     c = build_convo(db)
-    await c.turn(
-        "research it",
-        propose(c.goal),
-        text(c.readback(), " You said yes, so I'm starting now."),
-    )
+    await c.turn("research it", propose(c.goal))
     # The model then dispatches on a follow-up request with no new user turn.
     c.history.append({"role": "assistant", "content": "The user agreed. Dispatching."})
     c.chat.scripts = [dispatch(), text("ok")]
+    c.results.clear()
     body = {
         "messages": c.history,
         "stream": True,
@@ -234,15 +231,18 @@ async def test_barge_in_that_cut_off_the_readback_prevents_dispatch(
     await c.assert_nothing_dispatched()
 
 
-async def test_paraphrased_readback_is_not_a_delivered_readback(
+async def test_readback_is_spoken_by_the_server_verbatim_and_alone(
     db: async_sessionmaker[AsyncSession],
 ) -> None:
     c = build_convo(db)
-    # The model ignored "word for word" and never mentioned the exclusion or the artifact.
-    await c.turn("research it", propose(c.goal), text(f"Want me to {c.goal}?"))
+    # Live bug: the model's round after the tool call repeated the read-back and appended a
+    # report announcement to it. The server now speaks it and never asks for that round.
+    paraphrase = text(f"Want me to {c.goal}? Also, your report is ready.")
+    spoken = await c.turn("research it", propose(c.goal), paraphrase)
+    assert spoken == c.readback()
+    assert len(c.chat.calls) == 1
     await c.turn("yes", dispatch(), text("ok"))
-    assert c.tool_results()[0].startswith("REJECTED")
-    await c.assert_nothing_dispatched()
+    assert len(await c.commitments()) == 1
 
 
 async def test_readback_delivery_ignores_case_and_punctuation(
@@ -294,20 +294,16 @@ async def test_propose_while_assented_is_rejected_and_the_agreed_plan_dispatches
     assert row.goal == c.goal  # what the user actually agreed to
 
 
-async def test_newer_proposal_whose_readback_was_not_spoken_cannot_be_dispatched(
+async def test_two_proposals_in_one_round_speak_and_start_only_the_newest(
     db: async_sessionmaker[AsyncSession],
 ) -> None:
     c = build_convo(db)
-    # Two proposals in one turn; only the first read-back is spoken.
-    await c.turn(
-        "research it",
-        propose(c.goal),
-        propose(f"write {c.tag} a poem", "rhymes"),
-        text(c.readback()),
-    )
+    poem = f"write {c.tag} a poem"
+    spoken = await c.turn("research it", same_round(propose(c.goal), propose(poem, "rhymes")))
+    assert spoken == c.readback(poem, "rhymes")  # the older read-back is never heard
     await c.turn("yes", dispatch(), text("ok"))
-    assert c.tool_results()[0].startswith("REJECTED")
-    await c.assert_nothing_dispatched()
+    (row,) = await c.commitments()
+    assert row.goal == poem  # exactly what was read back
 
 
 @pytest.mark.parametrize("artifact", ["email", "slack_message", "pull_request"])

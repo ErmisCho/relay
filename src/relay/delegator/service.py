@@ -39,6 +39,7 @@ from relay.delegator.contracts import (
     SystemPrefixProvider,
     ToolContext,
     ToolRegistry,
+    ToolResult,
     TurnContext,
     TurnHook,
 )
@@ -633,9 +634,26 @@ class DelegatorService:
                         ],
                     }
                 ]
+                speak: str | None = None
                 for call in internal:
                     result = await self._execute(call, turn)
-                    messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
+                    messages.append(
+                        {"role": "tool", "tool_call_id": call.id, "content": result.content}
+                    )
+                    # The latest wins: a newer proposal replaces the older one, so only its
+                    # read-back is the one a yes can answer.
+                    speak = result.speak or speak
+                if speak:
+                    # Server-authored speech (the commitment read-back) ends the turn: another
+                    # model round would paraphrase, repeat or add to it.
+                    text = speak
+                    if turn.text_parts and not turn.text_parts[-1][-1:].isspace():
+                        text = " " + text
+                    if turn.first_token_at is None:
+                        turn.first_token_at = time.perf_counter()
+                    turn.text_parts.append(text)
+                    yield text
+                    return
                 # Tool results (a commitment read-back, recall, status) are answered by the
                 # normal model: small_local covers plain conversation only.
                 turn.chat_model = self.chat_model
@@ -661,16 +679,16 @@ class DelegatorService:
             return fallback
         return None
 
-    async def _execute(self, call: _Call, turn: _Turn) -> str:
+    async def _execute(self, call: _Call, turn: _Turn) -> ToolResult:
         tool = self.registry.get(call.name)
         if tool is None:  # pragma: no cover - guarded by the caller
-            return f"Error: unknown tool {call.name}."
+            return ToolResult(f"Error: unknown tool {call.name}.")
         try:
             args = json.loads(call.arguments or "{}")
         except ValueError:
             args = None
         if not isinstance(args, dict):
-            return (
+            return ToolResult(
                 f"Error: the arguments for {call.name} were not a valid JSON object. "
                 "Call the tool again with arguments matching its schema."
             )
@@ -681,11 +699,12 @@ class DelegatorService:
             user_turn_id=turn.ctx.user_turn_id,
         )
         try:
-            result = await tool(args, ctx)
+            return await tool(args, ctx)
         except Exception:
             log.exception("delegator: internal tool %s failed", call.name)
-            return f"Error: {call.name} failed internally. Tell the user briefly and move on."
-        return result.content
+            return ToolResult(
+                f"Error: {call.name} failed internally. Tell the user briefly and move on."
+            )
 
     async def stream_sse(self, turn: _Turn) -> AsyncIterator[bytes]:
         """The SSE body: content/tool-call chunks, a finish chunk, ``[DONE]``.

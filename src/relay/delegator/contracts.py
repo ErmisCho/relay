@@ -95,12 +95,16 @@ class ToolContext:
 class ToolResult:
     """Text handed back to the upstream model as the tool result.
 
-    Never streamed to ElevenLabs; only the model's resulting speech is.
+    Never streamed to ElevenLabs; only the model's resulting speech is, unless ``speak`` is set.
     """
 
     content: str
     # True when a server-side guard (scope, commitment protocol) refused the call.
     rejected: bool = False
+    # Server-authored text the Delegator speaks verbatim itself, ending the turn without another
+    # model round: nothing can paraphrase it, repeat it or append to it (the commitment
+    # read-back, which must be heard word for word and alone).
+    speak: str | None = None
 
 
 @runtime_checkable
