@@ -63,6 +63,11 @@ _MODEL_FIELDS = (
     "summary_model",
     "research_model",
     "research_fallback_model",
+    "router_model",
+    "research_easy_model",
+    "research_hard_model",
+    "research_hard_fallback_model",
+    "router_llm_model",
 )
 
 
@@ -70,7 +75,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # --- Store -----------------------------------------------------------------------------
-    database_url: str = "postgresql+asyncpg://relay:relay@localhost:55432/relay"
+    database_url: str = "postgresql+asyncpg://relay:relay@127.0.0.1:55432/relay"
 
     # --- LLM providers (local Ollama by default; frontier only by config) ------------------
     ollama_base_url: str = "http://localhost:11434/v1"
@@ -78,7 +83,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str | None = None
 
     # Model refs: "<provider>:<model>", provider in {ollama, openai, anthropic}.
-    delegator_model: str = "ollama:gemma4:e4b"
+    delegator_model: str = "ollama:qwen3:30b-a3b-instruct-2507-q4_K_M"
     delegator_fallback_model: str = "ollama:gemma4:e4b"
     assent_model: str = "ollama:gemma4:e4b"
     ready_model: str = "ollama:gemma4:e4b"
@@ -86,16 +91,67 @@ class Settings(BaseSettings):
     research_model: str = "ollama:qwen3.8:latest"
     research_fallback_model: str = "ollama:gemma4:e4b"
 
+    # Reasoning effort sent to openai: delegator models (gpt-6-luna accepts none|low|medium|
+    # high|xhigh). Keep "none" for voice: default reasoning measured 3.7 s TTFT vs 1.2 s, and
+    # hidden reasoning tokens count against ElevenLabs' 300-token reply cap. "default" = omit.
+    delegator_reasoning_effort: Literal["none", "low", "medium", "high", "xhigh", "default"] = (
+        "none"
+    )
+
+    # --- Task-difficulty routing (decision-5: gemma4 v2 router) ----------------------------
+    # The router classifies each dispatched task easy/hard once; failure or timeout = hard.
+    # Easy tasks run on research_easy_model; hard ones on research_hard_model, falling back
+    # to research_hard_fallback_model. research_model/research_fallback_model remain the
+    # pre-routing defaults.
+    router_model: str = "ollama:gemma4:e4b"
+    router_timeout_s: float = 5.0
+    research_easy_model: str = "ollama:gemma4:e4b"
+    research_hard_model: str = "ollama:qwen3.8:latest"
+    research_hard_fallback_model: str = "ollama:gemma4:e4b"
+
+    # --- Per-turn router (TASK-36/41; SPEC section 2) ---------------------------------------
+    # ROUTER_SHADOW: comma list of backends (e.g. "laya,llm") run after each response for
+    # logging only (``router_decisions.is_active=false``). ROUTER_ACTIVE: the backend that will
+    # drive routing; only read so far, acting on it is TASK-37 ("none" = frontier only).
+    router_shadow: Annotated[list[str], NoDecode] = []
+    router_active: Literal["none", "laya", "llm"] = "none"
+    # Zero-shot LLM router backend: never the frontier model itself. "ollama:<model>" calls
+    # Ollama /api/chat with a JSON-schema format; openai:/anthropic: use a pydantic-ai Agent.
+    router_llm_model: str = "ollama:gemma4:e4b"
+    router_llm_timeout_ms: int = 2000
+    # Earlier turns given to the LLM router as context, bounded in count and characters
+    # (~4 chars/token, so 4000 chars is about 1k tokens).
+    router_llm_context_turns: int = 6
+    router_llm_context_chars: int = 4000
+
     # --- Delegator / voice -----------------------------------------------------------------
     delegator_shared_secret: str = "dev-secret-change-me"
     delegator_public_url: str = "http://localhost:8000"
     elevenlabs_api_key: str | None = None
     elevenlabs_agent_id: str | None = None
 
+    # --- Demo website (TASK-42) ------------------------------------------------------------
+    # Passcode for the /demo API; empty (the default) disables every /demo route (404).
+    demo_passcode: str = ""
+    # Cap for one live demo voice session (only one runs at a time).
+    demo_max_voice_seconds: int = 600
+    # Built demo site served at / when this directory exists (and the demo is enabled).
+    demo_web_dist: str = "web/dist"
+    # How often the Delegator polls task rows for dispatched demo tasks.
+    demo_task_poll_s: float = 0.5
+
     # --- Executor --------------------------------------------------------------------------
     enabled_kinds: Annotated[list[str], NoDecode] = ["research"]
     artifacts_dir: str = "./artifacts"
     executor_url: str = "http://localhost:8001"
+    # Each idea gets its own project folder under this root; must be outside the relay repo.
+    executor_projects_root: str = "~/relay-projects"
+    # Code tasks (TASK-33): the worker pushes the task branch and opens a DRAFT pull request
+    # with this token. Empty: the result stays a local branch in the project folder. A project
+    # without an `origin` gets a new private repo under GITHUB_OWNER (default: the token's user).
+    github_token: str = ""
+    github_owner: str = ""
+    github_api_url: str = "https://api.github.com"
 
     # --- Client ----------------------------------------------------------------------------
     wake_model: str = "hey_jarvis"
@@ -107,6 +163,13 @@ class Settings(BaseSettings):
     def _split_kinds(cls, value: object) -> object:
         if isinstance(value, str):
             return [k.strip() for k in value.split(",") if k.strip()]
+        return value
+
+    @field_validator("router_shadow", mode="before")
+    @classmethod
+    def _split_router_shadow(cls, value: object) -> object:
+        if isinstance(value, str):
+            return [b.strip().lower() for b in value.split(",") if b.strip()]
         return value
 
     @field_validator("enabled_kinds")

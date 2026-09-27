@@ -1,0 +1,6745 @@
+{
+ "meta": {
+  "finished": "2026-09-26 19:51:45",
+  "machine": "macOS-26.6.2-arm64-arm-64bit-Mach-O (arm64)",
+  "n_items": 60,
+  "label_counts": {
+   "hard": 31,
+   "easy": 29
+  },
+  "reps": 3,
+  "gemma_model": "gemma4:e4b",
+  "laya_spec": "laya-mlx==0.2.0"
+ },
+ "summary": {
+  "gemma/v1": {
+   "majority": {
+    "n": 60,
+    "accuracy": 0.9833333333333333,
+    "precision_hard": 1.0,
+    "recall_hard": 0.967741935483871,
+    "confusion": {
+     "hard->hard": 30,
+     "hard->easy": 1,
+     "easy->hard": 0,
+     "easy->easy": 29
+    },
+    "hard_to_easy_misroutes": 1
+   },
+   "borderline": {
+    "n": 14,
+    "accuracy": 0.9285714285714286,
+    "precision_hard": 1.0,
+    "recall_hard": 0.875,
+    "confusion": {
+     "hard->hard": 7,
+     "hard->easy": 1,
+     "easy->hard": 0,
+     "easy->easy": 6
+    },
+    "hard_to_easy_misroutes": 1
+   },
+   "per_rep": [
+    {
+     "n": 60,
+     "accuracy": 0.9833333333333333,
+     "precision_hard": 1.0,
+     "recall_hard": 0.967741935483871,
+     "confusion": {
+      "hard->hard": 30,
+      "hard->easy": 1,
+      "easy->hard": 0,
+      "easy->easy": 29
+     },
+     "hard_to_easy_misroutes": 1
+    },
+    {
+     "n": 60,
+     "accuracy": 0.9833333333333333,
+     "precision_hard": 1.0,
+     "recall_hard": 0.967741935483871,
+     "confusion": {
+      "hard->hard": 30,
+      "hard->easy": 1,
+      "easy->hard": 0,
+      "easy->easy": 29
+     },
+     "hard_to_easy_misroutes": 1
+    },
+    {
+     "n": 60,
+     "accuracy": 0.9833333333333333,
+     "precision_hard": 1.0,
+     "recall_hard": 0.967741935483871,
+     "confusion": {
+      "hard->hard": 30,
+      "hard->easy": 1,
+      "easy->hard": 0,
+      "easy->easy": 29
+     },
+     "hard_to_easy_misroutes": 1
+    }
+   ],
+   "unstable_items": [],
+   "hard_misrouted_ids": [
+    "t60"
+   ],
+   "easy_misrouted_ids": [],
+   "latency_ms": {
+    "load_ms": [
+     null,
+     null,
+     null
+    ],
+    "cold_first_call": [
+     2315.632583002298,
+     2070.39999999688,
+     2674.807999999757
+    ],
+    "warm_p50": 502.0154999983788,
+    "warm_p95": 1428.0171249993145,
+    "warm_n": 177
+   },
+   "status_counts": {
+    "ok": 180
+   },
+   "failures": 0
+  },
+  "gemma/v2": {
+   "majority": {
+    "n": 60,
+    "accuracy": 1.0,
+    "precision_hard": 1.0,
+    "recall_hard": 1.0,
+    "confusion": {
+     "hard->hard": 31,
+     "hard->easy": 0,
+     "easy->hard": 0,
+     "easy->easy": 29
+    },
+    "hard_to_easy_misroutes": 0
+   },
+   "borderline": {
+    "n": 14,
+    "accuracy": 1.0,
+    "precision_hard": 1.0,
+    "recall_hard": 1.0,
+    "confusion": {
+     "hard->hard": 8,
+     "hard->easy": 0,
+     "easy->hard": 0,
+     "easy->easy": 6
+    },
+    "hard_to_easy_misroutes": 0
+   },
+   "per_rep": [
+    {
+     "n": 60,
+     "accuracy": 1.0,
+     "precision_hard": 1.0,
+     "recall_hard": 1.0,
+     "confusion": {
+      "hard->hard": 31,
+      "hard->easy": 0,
+      "easy->hard": 0,
+      "easy->easy": 29
+     },
+     "hard_to_easy_misroutes": 0
+    },
+    {
+     "n": 60,
+     "accuracy": 1.0,
+     "precision_hard": 1.0,
+     "recall_hard": 1.0,
+     "confusion": {
+      "hard->hard": 31,
+      "hard->easy": 0,
+      "easy->hard": 0,
+      "easy->easy": 29
+     },
+     "hard_to_easy_misroutes": 0
+    },
+    {
+     "n": 60,
+     "accuracy": 1.0,
+     "precision_hard": 1.0,
+     "recall_hard": 1.0,
+     "confusion": {
+      "hard->hard": 31,
+      "hard->easy": 0,
+      "easy->hard": 0,
+      "easy->easy": 29
+     },
+     "hard_to_easy_misroutes": 0
+    }
+   ],
+   "unstable_items": [],
+   "hard_misrouted_ids": [],
+   "easy_misrouted_ids": [],
+   "latency_ms": {
+    "load_ms": [
+     null,
+     null,
+     null
+    ],
+    "cold_first_call": [
+     5027.817750000395,
+     2154.4030840013875,
+     2149.4870420028747
+    ],
+    "warm_p50": 554.5857919969421,
+    "warm_p95": 1403.9635840017581,
+    "warm_n": 177
+   },
+   "status_counts": {
+    "ok": 180
+   },
+   "failures": 0
+  },
+  "laya/v1": {
+   "majority": {
+    "n": 60,
+    "accuracy": 0.9166666666666666,
+    "precision_hard": 0.9642857142857143,
+    "recall_hard": 0.8709677419354839,
+    "confusion": {
+     "hard->hard": 27,
+     "hard->easy": 4,
+     "easy->hard": 1,
+     "easy->easy": 28
+    },
+    "hard_to_easy_misroutes": 4
+   },
+   "borderline": {
+    "n": 14,
+    "accuracy": 0.6428571428571429,
+    "precision_hard": 0.8,
+    "recall_hard": 0.5,
+    "confusion": {
+     "hard->hard": 4,
+     "hard->easy": 4,
+     "easy->hard": 1,
+     "easy->easy": 5
+    },
+    "hard_to_easy_misroutes": 4
+   },
+   "per_rep": [
+    {
+     "n": 60,
+     "accuracy": 0.9166666666666666,
+     "precision_hard": 0.9642857142857143,
+     "recall_hard": 0.8709677419354839,
+     "confusion": {
+      "hard->hard": 27,
+      "hard->easy": 4,
+      "easy->hard": 1,
+      "easy->easy": 28
+     },
+     "hard_to_easy_misroutes": 4
+    },
+    {
+     "n": 60,
+     "accuracy": 0.9166666666666666,
+     "precision_hard": 0.9642857142857143,
+     "recall_hard": 0.8709677419354839,
+     "confusion": {
+      "hard->hard": 27,
+      "hard->easy": 4,
+      "easy->hard": 1,
+      "easy->easy": 28
+     },
+     "hard_to_easy_misroutes": 4
+    },
+    {
+     "n": 60,
+     "accuracy": 0.9166666666666666,
+     "precision_hard": 0.9642857142857143,
+     "recall_hard": 0.8709677419354839,
+     "confusion": {
+      "hard->hard": 27,
+      "hard->easy": 4,
+      "easy->hard": 1,
+      "easy->easy": 28
+     },
+     "hard_to_easy_misroutes": 4
+    }
+   ],
+   "unstable_items": [],
+   "hard_misrouted_ids": [
+    "t55",
+    "t56",
+    "t58",
+    "t60"
+   ],
+   "easy_misrouted_ids": [
+    "t28"
+   ],
+   "latency_ms": {
+    "load_ms": [
+     518.1248749977385,
+     321.68120800270117,
+     366.467375002685
+    ],
+    "cold_first_call": [
+     56.87262499850476,
+     58.74224999934086,
+     182.66154099910636
+    ],
+    "warm_p50": 29.70458300114842,
+    "warm_p95": 175.08666699723108,
+    "warm_n": 177
+   },
+   "status_counts": {
+    "ok": 180
+   },
+   "failures": 0
+  },
+  "laya/v2": {
+   "majority": {
+    "n": 60,
+    "accuracy": 0.9166666666666666,
+    "precision_hard": 0.9642857142857143,
+    "recall_hard": 0.8709677419354839,
+    "confusion": {
+     "hard->hard": 27,
+     "hard->easy": 4,
+     "easy->hard": 1,
+     "easy->easy": 28
+    },
+    "hard_to_easy_misroutes": 4
+   },
+   "borderline": {
+    "n": 14,
+    "accuracy": 0.7142857142857143,
+    "precision_hard": 1.0,
+    "recall_hard": 0.5,
+    "confusion": {
+     "hard->hard": 4,
+     "hard->easy": 4,
+     "easy->hard": 0,
+     "easy->easy": 6
+    },
+    "hard_to_easy_misroutes": 4
+   },
+   "per_rep": [
+    {
+     "n": 60,
+     "accuracy": 0.9166666666666666,
+     "precision_hard": 0.9642857142857143,
+     "recall_hard": 0.8709677419354839,
+     "confusion": {
+      "hard->hard": 27,
+      "hard->easy": 4,
+      "easy->hard": 1,
+      "easy->easy": 28
+     },
+     "hard_to_easy_misroutes": 4
+    },
+    {
+     "n": 60,
+     "accuracy": 0.9166666666666666,
+     "precision_hard": 0.9642857142857143,
+     "recall_hard": 0.8709677419354839,
+     "confusion": {
+      "hard->hard": 27,
+      "hard->easy": 4,
+      "easy->hard": 1,
+      "easy->easy": 28
+     },
+     "hard_to_easy_misroutes": 4
+    },
+    {
+     "n": 60,
+     "accuracy": 0.9166666666666666,
+     "precision_hard": 0.9642857142857143,
+     "recall_hard": 0.8709677419354839,
+     "confusion": {
+      "hard->hard": 27,
+      "hard->easy": 4,
+      "easy->hard": 1,
+      "easy->easy": 28
+     },
+     "hard_to_easy_misroutes": 4
+    }
+   ],
+   "unstable_items": [],
+   "hard_misrouted_ids": [
+    "t55",
+    "t56",
+    "t57",
+    "t58"
+   ],
+   "easy_misrouted_ids": [
+    "t06"
+   ],
+   "latency_ms": {
+    "load_ms": [
+     340.07295799892745,
+     1120.7379170009517,
+     509.0581670010579
+    ],
+    "cold_first_call": [
+     54.906332999962615,
+     60.386708999430994,
+     63.846791003015824
+    ],
+    "warm_p50": 31.38454099826049,
+    "warm_p95": 40.79970899692853,
+    "warm_n": 177
+   },
+   "status_counts": {
+    "ok": 180
+   },
+   "failures": 0
+  }
+ },
+ "raw": {
+  "gemma/v1": [
+   {
+    "load_ms": null,
+    "results": [
+     {
+      "id": "t01",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 2315.632583002298,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t02",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 4355.717250000453,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t03",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 453.82900000186055,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t04",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 451.23037500161445,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t05",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 495.9708749993297,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t06",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 495.1497920010297,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t07",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 453.8034580000385,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t08",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 451.0885829986364,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t09",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 449.63416699829395,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t10",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 498.8771669995913,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t11",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 459.3248749988561,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t12",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 453.62220799870556,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t13",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 1430.511792001198,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t14",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 451.2360000007902,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t15",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 452.2116670013929,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t16",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 497.5061660006759,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t17",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 451.27087499713525,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t18",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 450.7370829996944,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t19",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 447.5092920001771,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t20",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 452.82104199941386,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t21",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 450.82574999833014,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t22",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 452.7232090003963,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t23",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 453.3635830011917,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t24",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 451.67304200003855,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t25",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 1490.9173750020273,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t26",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 499.26795899955323,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t27",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 452.5089169983403,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t28",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 453.5508330009179,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t29",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 452.0481250001467,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t30",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 498.9229999991949,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t31",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 497.6896670013957,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t32",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 499.02704100168194,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t33",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 498.82699999943725,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t34",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 498.96875000194996,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t35",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 497.55320800250047,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t36",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 1428.0171249993145,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t37",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 501.15008300053887,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t38",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 497.81500000244705,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t39",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 501.48950000220793,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t40",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 503.6312500014901,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t41",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 505.0925420000567,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t42",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 502.2315839996736,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t43",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 502.8641669996432,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t44",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 504.6478340009344,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t45",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 505.63237499954994,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t46",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 505.80812499902095,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t47",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 504.32408299820963,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t48",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 505.44591700236197,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t49",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 505.76825000098324,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t50",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 506.9434170000022,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t51",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 507.9431670019403,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t52",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 507.83133300137706,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t53",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 508.3446249991539,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t54",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 506.1953749973327,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t55",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 509.3447910003306,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t56",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 509.07870800074306,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t57",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 510.15874999939115,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t58",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 510.6785000025411,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t59",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 505.92424999922514,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t60",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 508.5062910002307,
+      "raw": "{\"difficulty\": \"easy\"}"
+     }
+    ],
+    "env_before": {
+     "loadavg": [
+      2.76611328125,
+      1.97021484375,
+      1.80322265625
+     ],
+     "time": "2026-09-26T19:47:10",
+     "ollama_ps": [
+      "gemma4:e4b    c6eb396dbd59    10 GB    100% GPU     131072     4 minutes from now"
+     ]
+    }
+   },
+   {
+    "load_ms": null,
+    "results": [
+     {
+      "id": "t01",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 2070.39999999688,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t02",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 447.4638329993468,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t03",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 450.4850830016949,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t04",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 452.578167001775,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t05",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 503.8359579993994,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t06",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 500.0819579981908,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t07",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 458.25466599853826,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t08",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 458.2369589988957,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t09",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 454.8292910003511,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t10",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 504.6399589991779,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t11",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 458.672791999561,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t12",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 455.7557500011171,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t13",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 454.5275410018803,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t14",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 944.0332080012013,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t15",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 785.2911249974568,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t16",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 838.8652920002642,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t17",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 792.812125000637,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t18",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 1272.6738750025106,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t19",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 1278.6546669995005,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t20",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 458.52512499914155,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t21",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 457.88154199908604,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t22",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 458.82862500002375,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t23",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 459.91958399827126,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t24",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 456.43987500079675,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t25",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 504.57187500069267,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t26",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 505.2072920007049,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t27",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 456.69508400169434,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t28",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 456.8766250013141,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t29",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 458.3219160012959,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t30",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 514.1588749975199,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t31",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 4770.296250000683,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t32",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 1316.2039999988338,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t33",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 512.1780000008584,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t34",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 506.44000000102096,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t35",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 502.2210420029296,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t36",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 502.1296249979059,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t37",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 505.39354200009257,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t38",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 500.1975000013772,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t39",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 504.36762499884935,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t40",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 504.71954200111213,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t41",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 499.7680830019817,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t42",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 501.13545800195425,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t43",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 502.0154999983788,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t44",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 500.0114169997687,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t45",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 498.531749999529,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t46",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 500.1097079984902,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t47",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 501.45258299744455,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t48",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 502.7195410002605,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t49",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 504.8479170000064,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t50",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 500.4103749997739,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t51",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 507.0748750003986,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t52",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 501.02783300098963,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t53",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 500.0256659986917,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t54",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 501.1292910021439,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t55",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 500.1852909990703,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t56",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 500.3752920019906,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t57",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 498.4335409972118,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t58",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 498.6056659981841,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t59",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 496.46641700019245,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t60",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 493.36133299948415,
+      "raw": "{\"difficulty\": \"easy\"}"
+     }
+    ],
+    "env_before": {
+     "loadavg": [
+      2.388671875,
+      1.97216796875,
+      1.81103515625
+     ],
+     "time": "2026-09-26T19:47:48",
+     "ollama_ps": [
+      "gemma4:e4b    c6eb396dbd59    3.9 GB    100% GPU     131072     4 minutes from now"
+     ]
+    }
+   },
+   {
+    "load_ms": null,
+    "results": [
+     {
+      "id": "t01",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 2674.807999999757,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t02",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 3792.6222499991127,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t03",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 447.2603750000417,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t04",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 449.0926660000696,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t05",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 493.63850000008824,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t06",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 495.8375830028672,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t07",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 451.1430000020482,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t08",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 449.61454199801665,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t09",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 447.3469170006865,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t10",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 494.53916600032244,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t11",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 453.0484580027405,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t12",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 453.489499999705,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t13",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 1823.134582999046,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t14",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 472.1592909991159,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t15",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 459.9448750013835,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t16",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 508.8630829995964,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t17",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 459.4125420007913,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t18",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 574.0643749995797,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t19",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 1066.3335419994837,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t20",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 580.9302919988113,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t21",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 563.4003330014821,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t22",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 507.02149999779067,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t23",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 504.66837500061956,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t24",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 477.1798750007292,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t25",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 526.2073330013664,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t26",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 529.7904580002069,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t27",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 474.2314579998492,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t28",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 472.52587500042864,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t29",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 477.2278329983237,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t30",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 507.5759579995065,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t31",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 562.1705000012298,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t32",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 1404.499374999432,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t33",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 517.9349169993657,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t34",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 508.90466700002435,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t35",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 513.7015410000458,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t36",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 505.20083300216356,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t37",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 518.2765419995121,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t38",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 505.84191600137274,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t39",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 518.992208999407,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t40",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 527.7502089993504,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t41",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 515.1226250018226,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t42",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 1556.6668339997705,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t43",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 507.9426250013057,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t44",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 513.5409590002382,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t45",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 504.7248340015358,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t46",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 500.20054199922015,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t47",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 502.3207919984998,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t48",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 501.52724999861675,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t49",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 502.64516600145726,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t50",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 656.8977500028268,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t51",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 539.7013750007318,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t52",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 2130.627291997371,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t53",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 506.97541699992144,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t54",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 509.423291998246,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t55",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 507.3769580012595,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t56",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 506.74979199902737,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t57",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 503.7010829983046,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t58",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 507.6870409975527,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t59",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 504.63816599949496,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t60",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 505.57895800011465,
+      "raw": "{\"difficulty\": \"easy\"}"
+     }
+    ],
+    "env_before": {
+     "loadavg": [
+      2.66162109375,
+      2.05908203125,
+      1.84814453125
+     ],
+     "time": "2026-09-26T19:48:27",
+     "ollama_ps": [
+      "gemma4:e4b    c6eb396dbd59    10 GB    100% GPU     131072     4 minutes from now"
+     ]
+    }
+   }
+  ],
+  "gemma/v2": [
+   {
+    "load_ms": null,
+    "results": [
+     {
+      "id": "t01",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 5027.817750000395,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t02",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 4819.375041999592,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t03",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.696708000236,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t04",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.9884579993668,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t05",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 552.3790410006768,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t06",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 554.9694170003932,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t07",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 554.4555830019817,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t08",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 554.38249999861,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t09",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 552.9445409993059,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t10",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 552.44620799931,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t11",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 552.8598749988305,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t12",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 552.9291249986272,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t13",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.38595899957,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t14",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 550.8174589995178,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t15",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.918500001193,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t16",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 554.3676669985871,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t17",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.2794580026821,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t18",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.7099580029026,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t19",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.021040999738,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t20",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 554.9059580007452,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t21",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.7104999998992,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t22",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 552.3228330021084,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t23",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 550.5698330016457,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t24",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.9250410034147,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t25",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.5806250009045,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t26",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.4982089993719,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t27",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 549.8697920011182,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t28",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 550.9811669980991,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t29",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.3915420019184,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t30",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 552.1013329998823,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t31",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 553.1744999971124,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t32",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.463957999862,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t33",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 554.6184999984689,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t34",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.80779199893,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t35",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.7085419998912,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t36",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.2999579989119,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t37",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 556.1175839975476,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t38",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 553.3473750001576,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t39",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 554.0280829991389,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t40",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 558.1759580018115,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t41",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.570542000467,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t42",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.9149579997465,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t43",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 550.8970000009867,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t44",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.7460839984997,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t45",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 553.0387920007342,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t46",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 549.4079169984616,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t47",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.0385409981827,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t48",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.9266250014189,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t49",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 550.931457997649,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t50",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 566.6990409990831,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t51",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 554.0420830002404,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t52",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 553.9819580008043,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t53",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 559.6635410001909,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t54",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 561.790417003067,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t55",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 554.5857919969421,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t56",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 563.4317090007244,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t57",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.2412090031139,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t58",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 555.5633330004639,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t59",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 3328.8807079989056,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t60",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 2289.3032920001133,
+      "raw": "{\"difficulty\": \"hard\"}"
+     }
+    ],
+    "env_before": {
+     "loadavg": [
+      2.6015625,
+      2.11376953125,
+      1.87548828125
+     ],
+     "time": "2026-09-26T19:49:08",
+     "ollama_ps": [
+      "gemma4:e4b                        c6eb396dbd59    3.9 GB    100% GPU     131072     4 minutes from now    ",
+      "nemotron-3.5-lightning:30b-mlx    8b1474be6e54    22 GB     100% GPU     262144     4 minutes from now"
+     ]
+    }
+   },
+   {
+    "load_ms": null,
+    "results": [
+     {
+      "id": "t01",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 2154.4030840013875,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t02",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 565.2495419999468,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t03",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.9188340003893,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t04",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 562.3733749998792,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t05",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 552.7411670009315,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t06",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 563.9307920027932,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t07",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 4037.86208299789,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t08",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 562.4022079973656,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t09",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.1580839993258,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t10",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 563.8821669999743,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t11",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.6050410005846,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t12",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 568.9275420008926,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t13",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 550.8877499996743,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t14",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.8403749997087,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t15",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.224749997753,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t16",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 562.9840420006076,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t17",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 1403.9635840017581,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t18",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.9468339993618,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t19",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.9558329983265,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t20",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 560.9505829997943,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t21",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 550.5937919988355,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t22",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 554.9246670016146,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t23",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.268499999831,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t24",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 565.170500001841,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t25",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 549.8552909994032,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t26",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 564.570750000712,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t27",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 1390.9251670011145,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t28",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 555.244582999876,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t29",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 555.4084169998532,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t30",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 564.2443750002712,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t31",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.959083001042,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t32",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 562.0263749988226,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t33",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 553.1884580013866,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t34",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 565.1952920015901,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t35",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.5105000015174,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t36",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 549.6362919984676,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t37",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 1378.0289169990283,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t38",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 562.8735000027518,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t39",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 559.1563339985441,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t40",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 553.062917002535,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t41",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 569.4258750008885,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t42",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 554.8894580024353,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t43",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 556.4812920019904,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t44",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 566.2902089970885,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t45",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.7821249997942,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t46",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 1564.5799590020033,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t47",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 566.7862500013143,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t48",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 553.11279200032,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t49",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 557.4735420013894,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t50",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 566.8530840011954,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t51",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 551.8621670016728,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t52",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 558.6064589988382,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t53",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.9707909990975,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t54",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 563.3737909993215,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t55",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 568.7730829995417,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t56",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 564.2244160007976,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t57",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 553.3204999992449,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t58",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 565.2989999980491,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t59",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 554.7435830012546,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t60",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 565.4642080007761,
+      "raw": "{\"difficulty\": \"hard\"}"
+     }
+    ],
+    "env_before": {
+     "loadavg": [
+      2.3251953125,
+      2.11083984375,
+      1.8857421875
+     ],
+     "time": "2026-09-26T19:49:55",
+     "ollama_ps": [
+      "gemma4:e4b    c6eb396dbd59    10 GB    100% GPU     131072     4 minutes from now"
+     ]
+    }
+   },
+   {
+    "load_ms": null,
+    "results": [
+     {
+      "id": "t01",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 2149.4870420028747,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t02",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 564.3723339999269,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t03",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.4851250009087,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t04",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 566.1172920008539,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t05",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 552.869750001264,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t06",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 565.1001250007539,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t07",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.4869170001475,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t08",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 564.2205000003742,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t09",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 550.9479169995757,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t10",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.3641249967332,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t11",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 565.4159170007915,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t12",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 569.2935420011054,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t13",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 548.7964999992982,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t14",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 563.9057089974813,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t15",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.481957998476,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t16",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 555.0754169998982,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t17",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 553.6298749975685,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t18",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 555.3512500009674,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t19",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 1036.7696249995788,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t20",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 879.3574170013017,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t21",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 887.6449579984182,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t22",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 887.7940829988802,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t23",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 1297.156125001493,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t24",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 1296.7561670011492,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t25",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 566.965917001653,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t26",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 549.4875420008611,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t27",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 549.5681249994959,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t28",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 551.741667000897,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t29",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 560.8773749991087,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t30",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 552.8125410019129,
+      "raw": "{\"difficulty\": \"easy\"}"
+     },
+     {
+      "id": "t31",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 557.0467079996888,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t32",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 564.1017919988371,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t33",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 550.0050419977924,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t34",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 4543.843874998856,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t35",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 1305.7044580018555,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t36",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 3903.1641670007957,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t37",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 566.8432919992483,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t38",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 553.5277920025692,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t39",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 565.6793749985809,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t40",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 554.0267079995829,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t41",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 554.2007080002804,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t42",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 557.3032499996771,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t43",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 552.4389999991399,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t44",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 564.2768750003597,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t45",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 550.469833000534,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t46",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 1143.9716249988123,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t47",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 1320.2119590023358,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t48",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 559.0039579983568,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t49",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 553.2180830014113,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t50",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 555.2232079971873,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t51",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 555.55325000023,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t52",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 564.7063750002417,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t53",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 550.7008749991655,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t54",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 564.0724999975646,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t55",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 555.5221249996976,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t56",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 555.1063329985482,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t57",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 1624.835290996998,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t58",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 565.5237089995353,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t59",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 553.1368330011901,
+      "raw": "{\"difficulty\": \"hard\"}"
+     },
+     {
+      "id": "t60",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 554.7850830007519,
+      "raw": "{\"difficulty\": \"hard\"}"
+     }
+    ],
+    "env_before": {
+     "loadavg": [
+      3.01123046875,
+      2.32666015625,
+      1.97509765625
+     ],
+     "time": "2026-09-26T19:50:37",
+     "ollama_ps": [
+      "gemma4:e4b    c6eb396dbd59    10 GB    100% GPU     131072     4 minutes from now"
+     ]
+    }
+   }
+  ],
+  "laya/v1": [
+   {
+    "load_ms": 518.1248749977385,
+    "model_id": "aac6fef/laya-mlx",
+    "laya_mlx_version": "0.2.0",
+    "warnings": [
+     "laya-mlx: this checkpoint ships temperatures outside [0.5, 5] which would distort confidence; clamping choice:11+=0.1006. Treat confidence from the affected buckets as uncalibrated."
+    ],
+    "results": [
+     {
+      "id": "t01",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 56.87262499850476,
+      "raw": {
+       "easy": 0.2986,
+       "hard": 0.7014
+      }
+     },
+     {
+      "id": "t02",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.81895899938536,
+      "raw": {
+       "easy": 0.6851,
+       "hard": 0.3149
+      }
+     },
+     {
+      "id": "t03",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.285166998306522,
+      "raw": {
+       "easy": 0.6954,
+       "hard": 0.3046
+      }
+     },
+     {
+      "id": "t04",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.995708998991176,
+      "raw": {
+       "easy": 0.6569,
+       "hard": 0.3431
+      }
+     },
+     {
+      "id": "t05",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.62120799929835,
+      "raw": {
+       "easy": 0.603,
+       "hard": 0.397
+      }
+     },
+     {
+      "id": "t06",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.955333000340033,
+      "raw": {
+       "easy": 0.5302,
+       "hard": 0.4698
+      }
+     },
+     {
+      "id": "t07",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.363500001636567,
+      "raw": {
+       "easy": 0.6372,
+       "hard": 0.3628
+      }
+     },
+     {
+      "id": "t08",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.535833000409184,
+      "raw": {
+       "easy": 0.5444,
+       "hard": 0.4556
+      }
+     },
+     {
+      "id": "t09",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.07854099976248,
+      "raw": {
+       "easy": 0.6266,
+       "hard": 0.3734
+      }
+     },
+     {
+      "id": "t10",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.268083999340888,
+      "raw": {
+       "easy": 0.5865,
+       "hard": 0.4135
+      }
+     },
+     {
+      "id": "t11",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.13099999932456,
+      "raw": {
+       "easy": 0.65,
+       "hard": 0.35
+      }
+     },
+     {
+      "id": "t12",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.140374997950858,
+      "raw": {
+       "easy": 0.7797,
+       "hard": 0.2203
+      }
+     },
+     {
+      "id": "t13",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.194000002462417,
+      "raw": {
+       "easy": 0.6238,
+       "hard": 0.3762
+      }
+     },
+     {
+      "id": "t14",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.173124999942956,
+      "raw": {
+       "easy": 0.7016,
+       "hard": 0.2984
+      }
+     },
+     {
+      "id": "t15",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.077750001306413,
+      "raw": {
+       "easy": 0.5597,
+       "hard": 0.4403
+      }
+     },
+     {
+      "id": "t16",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.16091699808021,
+      "raw": {
+       "easy": 0.5997,
+       "hard": 0.4003
+      }
+     },
+     {
+      "id": "t17",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.1217920021154,
+      "raw": {
+       "easy": 0.6718,
+       "hard": 0.3282
+      }
+     },
+     {
+      "id": "t18",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.826249999838183,
+      "raw": {
+       "easy": 0.7024,
+       "hard": 0.2976
+      }
+     },
+     {
+      "id": "t19",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.240040999866324,
+      "raw": {
+       "easy": 0.5839,
+       "hard": 0.4161
+      }
+     },
+     {
+      "id": "t20",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.092500000842847,
+      "raw": {
+       "easy": 0.588,
+       "hard": 0.412
+      }
+     },
+     {
+      "id": "t21",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.91591600200627,
+      "raw": {
+       "easy": 0.6758,
+       "hard": 0.3242
+      }
+     },
+     {
+      "id": "t22",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.180666999309324,
+      "raw": {
+       "easy": 0.5974,
+       "hard": 0.4026
+      }
+     },
+     {
+      "id": "t23",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.14125000097556,
+      "raw": {
+       "easy": 0.5229,
+       "hard": 0.4771
+      }
+     },
+     {
+      "id": "t24",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.200166998634813,
+      "raw": {
+       "easy": 0.8383,
+       "hard": 0.1617
+      }
+     },
+     {
+      "id": "t25",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.084292000334244,
+      "raw": {
+       "easy": 0.5035,
+       "hard": 0.4965
+      }
+     },
+     {
+      "id": "t26",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.321750000235625,
+      "raw": {
+       "easy": 0.5118,
+       "hard": 0.4882
+      }
+     },
+     {
+      "id": "t27",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.116124998836312,
+      "raw": {
+       "easy": 0.528,
+       "hard": 0.472
+      }
+     },
+     {
+      "id": "t28",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.14487499947427,
+      "raw": {
+       "easy": 0.4886,
+       "hard": 0.5114
+      }
+     },
+     {
+      "id": "t29",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.918666997924447,
+      "raw": {
+       "easy": 0.6347,
+       "hard": 0.3653
+      }
+     },
+     {
+      "id": "t30",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.125666002073558,
+      "raw": {
+       "easy": 0.5705,
+       "hard": 0.4295
+      }
+     },
+     {
+      "id": "t31",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.664415997103788,
+      "raw": {
+       "easy": 0.2391,
+       "hard": 0.7609
+      }
+     },
+     {
+      "id": "t32",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.375250000157394,
+      "raw": {
+       "easy": 0.4255,
+       "hard": 0.5745
+      }
+     },
+     {
+      "id": "t33",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.330624998692656,
+      "raw": {
+       "easy": 0.2386,
+       "hard": 0.7614
+      }
+     },
+     {
+      "id": "t34",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.3633340006636,
+      "raw": {
+       "easy": 0.3397,
+       "hard": 0.6603
+      }
+     },
+     {
+      "id": "t35",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.134209002222633,
+      "raw": {
+       "easy": 0.3234,
+       "hard": 0.6766
+      }
+     },
+     {
+      "id": "t36",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.019124998740153,
+      "raw": {
+       "easy": 0.1315,
+       "hard": 0.8685
+      }
+     },
+     {
+      "id": "t37",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.740250000031665,
+      "raw": {
+       "easy": 0.3803,
+       "hard": 0.6197
+      }
+     },
+     {
+      "id": "t38",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 30.356749997736188,
+      "raw": {
+       "easy": 0.2911,
+       "hard": 0.7089
+      }
+     },
+     {
+      "id": "t39",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 30.019957997865276,
+      "raw": {
+       "easy": 0.3213,
+       "hard": 0.6787
+      }
+     },
+     {
+      "id": "t40",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 30.56283399928361,
+      "raw": {
+       "easy": 0.4583,
+       "hard": 0.5417
+      }
+     },
+     {
+      "id": "t41",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 30.98741699795937,
+      "raw": {
+       "easy": 0.2425,
+       "hard": 0.7575
+      }
+     },
+     {
+      "id": "t42",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.205125000269618,
+      "raw": {
+       "easy": 0.3679,
+       "hard": 0.6321
+      }
+     },
+     {
+      "id": "t43",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.82129099877784,
+      "raw": {
+       "easy": 0.2983,
+       "hard": 0.7017
+      }
+     },
+     {
+      "id": "t44",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.139375001657754,
+      "raw": {
+       "easy": 0.2789,
+       "hard": 0.7211
+      }
+     },
+     {
+      "id": "t45",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 30.63237500100513,
+      "raw": {
+       "easy": 0.3625,
+       "hard": 0.6375
+      }
+     },
+     {
+      "id": "t46",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.686249999940628,
+      "raw": {
+       "easy": 0.3129,
+       "hard": 0.6871
+      }
+     },
+     {
+      "id": "t47",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.335457998968195,
+      "raw": {
+       "easy": 0.2987,
+       "hard": 0.7013
+      }
+     },
+     {
+      "id": "t48",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 28.730334001011215,
+      "raw": {
+       "easy": 0.3365,
+       "hard": 0.6635
+      }
+     },
+     {
+      "id": "t49",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.64391600107774,
+      "raw": {
+       "easy": 0.2619,
+       "hard": 0.7381
+      }
+     },
+     {
+      "id": "t50",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 28.981209001358366,
+      "raw": {
+       "easy": 0.4505,
+       "hard": 0.5495
+      }
+     },
+     {
+      "id": "t51",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.088750001392327,
+      "raw": {
+       "easy": 0.3113,
+       "hard": 0.6887
+      }
+     },
+     {
+      "id": "t52",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.094083001837134,
+      "raw": {
+       "easy": 0.348,
+       "hard": 0.652
+      }
+     },
+     {
+      "id": "t53",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.117999998561572,
+      "raw": {
+       "easy": 0.2779,
+       "hard": 0.7221
+      }
+     },
+     {
+      "id": "t54",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.185666997364024,
+      "raw": {
+       "easy": 0.3336,
+       "hard": 0.6664
+      }
+     },
+     {
+      "id": "t55",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.17725000224891,
+      "raw": {
+       "easy": 0.5481,
+       "hard": 0.4519
+      }
+     },
+     {
+      "id": "t56",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.175625000789296,
+      "raw": {
+       "easy": 0.5492,
+       "hard": 0.4508
+      }
+     },
+     {
+      "id": "t57",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.089832998579368,
+      "raw": {
+       "easy": 0.4279,
+       "hard": 0.5721
+      }
+     },
+     {
+      "id": "t58",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.103124998073326,
+      "raw": {
+       "easy": 0.508,
+       "hard": 0.492
+      }
+     },
+     {
+      "id": "t59",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.268999998748768,
+      "raw": {
+       "easy": 0.2801,
+       "hard": 0.7199
+      }
+     },
+     {
+      "id": "t60",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.118458998709684,
+      "raw": {
+       "easy": 0.5653,
+       "hard": 0.4347
+      }
+     }
+    ],
+    "env_before": {
+     "loadavg": [
+      3.36865234375,
+      2.50927734375,
+      2.06103515625
+     ],
+     "time": "2026-09-26T19:51:25",
+     "ollama_ps": []
+    }
+   },
+   {
+    "load_ms": 321.68120800270117,
+    "model_id": "aac6fef/laya-mlx",
+    "laya_mlx_version": "0.2.0",
+    "warnings": [
+     "laya-mlx: this checkpoint ships temperatures outside [0.5, 5] which would distort confidence; clamping choice:11+=0.1006. Treat confidence from the affected buckets as uncalibrated."
+    ],
+    "results": [
+     {
+      "id": "t01",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 58.74224999934086,
+      "raw": {
+       "easy": 0.2986,
+       "hard": 0.7014
+      }
+     },
+     {
+      "id": "t02",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.264083001180552,
+      "raw": {
+       "easy": 0.6851,
+       "hard": 0.3149
+      }
+     },
+     {
+      "id": "t03",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.908500000397908,
+      "raw": {
+       "easy": 0.6954,
+       "hard": 0.3046
+      }
+     },
+     {
+      "id": "t04",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.897000000142725,
+      "raw": {
+       "easy": 0.6569,
+       "hard": 0.3431
+      }
+     },
+     {
+      "id": "t05",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.180165998695884,
+      "raw": {
+       "easy": 0.603,
+       "hard": 0.397
+      }
+     },
+     {
+      "id": "t06",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.880959001980955,
+      "raw": {
+       "easy": 0.5302,
+       "hard": 0.4698
+      }
+     },
+     {
+      "id": "t07",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.883750001114095,
+      "raw": {
+       "easy": 0.6372,
+       "hard": 0.3628
+      }
+     },
+     {
+      "id": "t08",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.898459000629373,
+      "raw": {
+       "easy": 0.5444,
+       "hard": 0.4556
+      }
+     },
+     {
+      "id": "t09",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.43316700111609,
+      "raw": {
+       "easy": 0.6266,
+       "hard": 0.3734
+      }
+     },
+     {
+      "id": "t10",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.729958998359507,
+      "raw": {
+       "easy": 0.5865,
+       "hard": 0.4135
+      }
+     },
+     {
+      "id": "t11",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.70458300114842,
+      "raw": {
+       "easy": 0.65,
+       "hard": 0.35
+      }
+     },
+     {
+      "id": "t12",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.372582997893915,
+      "raw": {
+       "easy": 0.7797,
+       "hard": 0.2203
+      }
+     },
+     {
+      "id": "t13",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.420041999401292,
+      "raw": {
+       "easy": 0.6238,
+       "hard": 0.3762
+      }
+     },
+     {
+      "id": "t14",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.00866600248264,
+      "raw": {
+       "easy": 0.7016,
+       "hard": 0.2984
+      }
+     },
+     {
+      "id": "t15",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.128582998964703,
+      "raw": {
+       "easy": 0.5597,
+       "hard": 0.4403
+      }
+     },
+     {
+      "id": "t16",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.978833001019666,
+      "raw": {
+       "easy": 0.5997,
+       "hard": 0.4003
+      }
+     },
+     {
+      "id": "t17",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.026542000792688,
+      "raw": {
+       "easy": 0.6718,
+       "hard": 0.3282
+      }
+     },
+     {
+      "id": "t18",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.856582998036174,
+      "raw": {
+       "easy": 0.7024,
+       "hard": 0.2976
+      }
+     },
+     {
+      "id": "t19",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.064457998174476,
+      "raw": {
+       "easy": 0.5839,
+       "hard": 0.4161
+      }
+     },
+     {
+      "id": "t20",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.996375000133412,
+      "raw": {
+       "easy": 0.588,
+       "hard": 0.412
+      }
+     },
+     {
+      "id": "t21",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 39.6863329988264,
+      "raw": {
+       "easy": 0.6758,
+       "hard": 0.3242
+      }
+     },
+     {
+      "id": "t22",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 37.12170799917658,
+      "raw": {
+       "easy": 0.5974,
+       "hard": 0.4026
+      }
+     },
+     {
+      "id": "t23",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.98033300152747,
+      "raw": {
+       "easy": 0.5229,
+       "hard": 0.4771
+      }
+     },
+     {
+      "id": "t24",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.92595899902517,
+      "raw": {
+       "easy": 0.8383,
+       "hard": 0.1617
+      }
+     },
+     {
+      "id": "t25",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.202333000284852,
+      "raw": {
+       "easy": 0.5035,
+       "hard": 0.4965
+      }
+     },
+     {
+      "id": "t26",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.5026659987343,
+      "raw": {
+       "easy": 0.5118,
+       "hard": 0.4882
+      }
+     },
+     {
+      "id": "t27",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.192750000220258,
+      "raw": {
+       "easy": 0.528,
+       "hard": 0.472
+      }
+     },
+     {
+      "id": "t28",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.33570800087182,
+      "raw": {
+       "easy": 0.4886,
+       "hard": 0.5114
+      }
+     },
+     {
+      "id": "t29",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.086749997077277,
+      "raw": {
+       "easy": 0.6347,
+       "hard": 0.3653
+      }
+     },
+     {
+      "id": "t30",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.22904200022458,
+      "raw": {
+       "easy": 0.5705,
+       "hard": 0.4295
+      }
+     },
+     {
+      "id": "t31",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.95054199709557,
+      "raw": {
+       "easy": 0.2391,
+       "hard": 0.7609
+      }
+     },
+     {
+      "id": "t32",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 30.776249997870764,
+      "raw": {
+       "easy": 0.4255,
+       "hard": 0.5745
+      }
+     },
+     {
+      "id": "t33",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 40.613124998344574,
+      "raw": {
+       "easy": 0.2386,
+       "hard": 0.7614
+      }
+     },
+     {
+      "id": "t34",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 38.61837500153342,
+      "raw": {
+       "easy": 0.3397,
+       "hard": 0.6603
+      }
+     },
+     {
+      "id": "t35",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.319208002561936,
+      "raw": {
+       "easy": 0.3234,
+       "hard": 0.6766
+      }
+     },
+     {
+      "id": "t36",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.148832996725105,
+      "raw": {
+       "easy": 0.1315,
+       "hard": 0.8685
+      }
+     },
+     {
+      "id": "t37",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.048583000985673,
+      "raw": {
+       "easy": 0.3803,
+       "hard": 0.6197
+      }
+     },
+     {
+      "id": "t38",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.42487500331481,
+      "raw": {
+       "easy": 0.2911,
+       "hard": 0.7089
+      }
+     },
+     {
+      "id": "t39",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.613917002279777,
+      "raw": {
+       "easy": 0.3213,
+       "hard": 0.6787
+      }
+     },
+     {
+      "id": "t40",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.44579199902364,
+      "raw": {
+       "easy": 0.4583,
+       "hard": 0.5417
+      }
+     },
+     {
+      "id": "t41",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.28158300346695,
+      "raw": {
+       "easy": 0.2425,
+       "hard": 0.7575
+      }
+     },
+     {
+      "id": "t42",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.14941699782503,
+      "raw": {
+       "easy": 0.3679,
+       "hard": 0.6321
+      }
+     },
+     {
+      "id": "t43",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.06908400109387,
+      "raw": {
+       "easy": 0.2983,
+       "hard": 0.7017
+      }
+     },
+     {
+      "id": "t44",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.606624997541076,
+      "raw": {
+       "easy": 0.2789,
+       "hard": 0.7211
+      }
+     },
+     {
+      "id": "t45",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.162500002712477,
+      "raw": {
+       "easy": 0.3625,
+       "hard": 0.6375
+      }
+     },
+     {
+      "id": "t46",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 28.927874998771586,
+      "raw": {
+       "easy": 0.3129,
+       "hard": 0.6871
+      }
+     },
+     {
+      "id": "t47",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 29.098791001160862,
+      "raw": {
+       "easy": 0.2987,
+       "hard": 0.7013
+      }
+     },
+     {
+      "id": "t48",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 130.653666001308,
+      "raw": {
+       "easy": 0.3365,
+       "hard": 0.6635
+      }
+     },
+     {
+      "id": "t49",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 173.27587500039954,
+      "raw": {
+       "easy": 0.2619,
+       "hard": 0.7381
+      }
+     },
+     {
+      "id": "t50",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 174.34687499917345,
+      "raw": {
+       "easy": 0.4505,
+       "hard": 0.5495
+      }
+     },
+     {
+      "id": "t51",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 178.63683299947297,
+      "raw": {
+       "easy": 0.3113,
+       "hard": 0.6887
+      }
+     },
+     {
+      "id": "t52",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 183.00074999933713,
+      "raw": {
+       "easy": 0.348,
+       "hard": 0.652
+      }
+     },
+     {
+      "id": "t53",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 171.02670799795305,
+      "raw": {
+       "easy": 0.2779,
+       "hard": 0.7221
+      }
+     },
+     {
+      "id": "t54",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 175.06958299782127,
+      "raw": {
+       "easy": 0.3336,
+       "hard": 0.6664
+      }
+     },
+     {
+      "id": "t55",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 186.79704100213712,
+      "raw": {
+       "easy": 0.5481,
+       "hard": 0.4519
+      }
+     },
+     {
+      "id": "t56",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 175.08666699723108,
+      "raw": {
+       "easy": 0.5492,
+       "hard": 0.4508
+      }
+     },
+     {
+      "id": "t57",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 184.07633300012094,
+      "raw": {
+       "easy": 0.4279,
+       "hard": 0.5721
+      }
+     },
+     {
+      "id": "t58",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 182.03679200087208,
+      "raw": {
+       "easy": 0.508,
+       "hard": 0.492
+      }
+     },
+     {
+      "id": "t59",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 180.9107920016686,
+      "raw": {
+       "easy": 0.2801,
+       "hard": 0.7199
+      }
+     },
+     {
+      "id": "t60",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 172.03145799794584,
+      "raw": {
+       "easy": 0.5653,
+       "hard": 0.4347
+      }
+     }
+    ],
+    "env_before": {
+     "loadavg": [
+      3.4189453125,
+      2.53369140625,
+      2.072265625
+     ],
+     "time": "2026-09-26T19:51:28",
+     "ollama_ps": []
+    }
+   },
+   {
+    "load_ms": 366.467375002685,
+    "model_id": "aac6fef/laya-mlx",
+    "laya_mlx_version": "0.2.0",
+    "warnings": [
+     "laya-mlx: this checkpoint ships temperatures outside [0.5, 5] which would distort confidence; clamping choice:11+=0.1006. Treat confidence from the affected buckets as uncalibrated."
+    ],
+    "results": [
+     {
+      "id": "t01",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 182.66154099910636,
+      "raw": {
+       "easy": 0.2986,
+       "hard": 0.7014
+      }
+     },
+     {
+      "id": "t02",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 193.94708300023922,
+      "raw": {
+       "easy": 0.6851,
+       "hard": 0.3149
+      }
+     },
+     {
+      "id": "t03",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 180.01987500247196,
+      "raw": {
+       "easy": 0.6954,
+       "hard": 0.3046
+      }
+     },
+     {
+      "id": "t04",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 105.04558300090139,
+      "raw": {
+       "easy": 0.6569,
+       "hard": 0.3431
+      }
+     },
+     {
+      "id": "t05",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.3876249997993,
+      "raw": {
+       "easy": 0.603,
+       "hard": 0.397
+      }
+     },
+     {
+      "id": "t06",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 28.996666998864384,
+      "raw": {
+       "easy": 0.5302,
+       "hard": 0.4698
+      }
+     },
+     {
+      "id": "t07",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 39.877333998447284,
+      "raw": {
+       "easy": 0.6372,
+       "hard": 0.3628
+      }
+     },
+     {
+      "id": "t08",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 55.873833000077866,
+      "raw": {
+       "easy": 0.5444,
+       "hard": 0.4556
+      }
+     },
+     {
+      "id": "t09",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 34.1383750019304,
+      "raw": {
+       "easy": 0.6266,
+       "hard": 0.3734
+      }
+     },
+     {
+      "id": "t10",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 29.710917002375936,
+      "raw": {
+       "easy": 0.5865,
+       "hard": 0.4135
+      }
+     },
+     {
+      "id": "t11",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 38.53666700160829,
+      "raw": {
+       "easy": 0.65,
+       "hard": 0.35
+      }
+     },
+     {
+      "id": "t12",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 35.431707998213824,
+      "raw": {
+       "easy": 0.7797,
+       "hard": 0.2203
+      }
+     },
+     {
+      "id": "t13",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 37.15599999850383,
+      "raw": {
+       "easy": 0.6238,
+       "hard": 0.3762
+      }
+     },
+     {
+      "id": "t14",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 37.08208299940452,
+      "raw": {
+       "easy": 0.7016,
+       "hard": 0.2984
+      }
+     },
+     {
+      "id": "t15",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 37.10137500092969,
+      "raw": {
+       "easy": 0.5597,
+       "hard": 0.4403
+      }
+     },
+     {
+      "id": "t16",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 38.37329200177919,
+      "raw": {
+       "easy": 0.5997,
+       "hard": 0.4003
+      }
+     },
+     {
+      "id": "t17",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 36.86258400193765,
+      "raw": {
+       "easy": 0.6718,
+       "hard": 0.3282
+      }
+     },
+     {
+      "id": "t18",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 38.155291997099994,
+      "raw": {
+       "easy": 0.7024,
+       "hard": 0.2976
+      }
+     },
+     {
+      "id": "t19",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 38.571583998418646,
+      "raw": {
+       "easy": 0.5839,
+       "hard": 0.4161
+      }
+     },
+     {
+      "id": "t20",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 38.061832998209866,
+      "raw": {
+       "easy": 0.588,
+       "hard": 0.412
+      }
+     },
+     {
+      "id": "t21",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 37.78479099855758,
+      "raw": {
+       "easy": 0.6758,
+       "hard": 0.3242
+      }
+     },
+     {
+      "id": "t22",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 37.57445799783454,
+      "raw": {
+       "easy": 0.5974,
+       "hard": 0.4026
+      }
+     },
+     {
+      "id": "t23",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 38.51004200259922,
+      "raw": {
+       "easy": 0.5229,
+       "hard": 0.4771
+      }
+     },
+     {
+      "id": "t24",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 36.643375002313405,
+      "raw": {
+       "easy": 0.8383,
+       "hard": 0.1617
+      }
+     },
+     {
+      "id": "t25",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 37.815625000803266,
+      "raw": {
+       "easy": 0.5035,
+       "hard": 0.4965
+      }
+     },
+     {
+      "id": "t26",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 37.60958299972117,
+      "raw": {
+       "easy": 0.5118,
+       "hard": 0.4882
+      }
+     },
+     {
+      "id": "t27",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 36.52045799753978,
+      "raw": {
+       "easy": 0.528,
+       "hard": 0.472
+      }
+     },
+     {
+      "id": "t28",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 36.89312500137021,
+      "raw": {
+       "easy": 0.4886,
+       "hard": 0.5114
+      }
+     },
+     {
+      "id": "t29",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 33.554041998286266,
+      "raw": {
+       "easy": 0.6347,
+       "hard": 0.3653
+      }
+     },
+     {
+      "id": "t30",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 36.0142919998907,
+      "raw": {
+       "easy": 0.5705,
+       "hard": 0.4295
+      }
+     },
+     {
+      "id": "t31",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 38.0540000005567,
+      "raw": {
+       "easy": 0.2391,
+       "hard": 0.7609
+      }
+     },
+     {
+      "id": "t32",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 35.51858299761079,
+      "raw": {
+       "easy": 0.4255,
+       "hard": 0.5745
+      }
+     },
+     {
+      "id": "t33",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 36.767207999218954,
+      "raw": {
+       "easy": 0.2386,
+       "hard": 0.7614
+      }
+     },
+     {
+      "id": "t34",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 37.570666001556674,
+      "raw": {
+       "easy": 0.3397,
+       "hard": 0.6603
+      }
+     },
+     {
+      "id": "t35",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 36.85462499925052,
+      "raw": {
+       "easy": 0.3234,
+       "hard": 0.6766
+      }
+     },
+     {
+      "id": "t36",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 35.56837499854737,
+      "raw": {
+       "easy": 0.1315,
+       "hard": 0.8685
+      }
+     },
+     {
+      "id": "t37",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 36.76833400095347,
+      "raw": {
+       "easy": 0.3803,
+       "hard": 0.6197
+      }
+     },
+     {
+      "id": "t38",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 36.276834001910174,
+      "raw": {
+       "easy": 0.2911,
+       "hard": 0.7089
+      }
+     },
+     {
+      "id": "t39",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 37.56645899920841,
+      "raw": {
+       "easy": 0.3213,
+       "hard": 0.6787
+      }
+     },
+     {
+      "id": "t40",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 36.60279099858599,
+      "raw": {
+       "easy": 0.4583,
+       "hard": 0.5417
+      }
+     },
+     {
+      "id": "t41",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 36.64554200076964,
+      "raw": {
+       "easy": 0.2425,
+       "hard": 0.7575
+      }
+     },
+     {
+      "id": "t42",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 35.97833400272066,
+      "raw": {
+       "easy": 0.3679,
+       "hard": 0.6321
+      }
+     },
+     {
+      "id": "t43",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 38.39879199949792,
+      "raw": {
+       "easy": 0.2983,
+       "hard": 0.7017
+      }
+     },
+     {
+      "id": "t44",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 39.51545800009626,
+      "raw": {
+       "easy": 0.2789,
+       "hard": 0.7211
+      }
+     },
+     {
+      "id": "t45",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 39.82279200135963,
+      "raw": {
+       "easy": 0.3625,
+       "hard": 0.6375
+      }
+     },
+     {
+      "id": "t46",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 39.32958400037023,
+      "raw": {
+       "easy": 0.3129,
+       "hard": 0.6871
+      }
+     },
+     {
+      "id": "t47",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 39.64550000091549,
+      "raw": {
+       "easy": 0.2987,
+       "hard": 0.7013
+      }
+     },
+     {
+      "id": "t48",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 40.44941599931917,
+      "raw": {
+       "easy": 0.3365,
+       "hard": 0.6635
+      }
+     },
+     {
+      "id": "t49",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 40.49354200105881,
+      "raw": {
+       "easy": 0.2619,
+       "hard": 0.7381
+      }
+     },
+     {
+      "id": "t50",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 39.69883299942012,
+      "raw": {
+       "easy": 0.4505,
+       "hard": 0.5495
+      }
+     },
+     {
+      "id": "t51",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 40.341042000363814,
+      "raw": {
+       "easy": 0.3113,
+       "hard": 0.6887
+      }
+     },
+     {
+      "id": "t52",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 39.49950000242097,
+      "raw": {
+       "easy": 0.348,
+       "hard": 0.652
+      }
+     },
+     {
+      "id": "t53",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 40.12933299964061,
+      "raw": {
+       "easy": 0.2779,
+       "hard": 0.7221
+      }
+     },
+     {
+      "id": "t54",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 39.83337500176276,
+      "raw": {
+       "easy": 0.3336,
+       "hard": 0.6664
+      }
+     },
+     {
+      "id": "t55",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 39.983208997000474,
+      "raw": {
+       "easy": 0.5481,
+       "hard": 0.4519
+      }
+     },
+     {
+      "id": "t56",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 40.57779100185144,
+      "raw": {
+       "easy": 0.5492,
+       "hard": 0.4508
+      }
+     },
+     {
+      "id": "t57",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 40.06041600223398,
+      "raw": {
+       "easy": 0.4279,
+       "hard": 0.5721
+      }
+     },
+     {
+      "id": "t58",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 36.16308299751836,
+      "raw": {
+       "easy": 0.508,
+       "hard": 0.492
+      }
+     },
+     {
+      "id": "t59",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 32.78604200022528,
+      "raw": {
+       "easy": 0.2801,
+       "hard": 0.7199
+      }
+     },
+     {
+      "id": "t60",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 33.147709000331815,
+      "raw": {
+       "easy": 0.5653,
+       "hard": 0.4347
+      }
+     }
+    ],
+    "env_before": {
+     "loadavg": [
+      3.22509765625,
+      2.5078125,
+      2.06591796875
+     ],
+     "time": "2026-09-26T19:51:33",
+     "ollama_ps": [
+      "gemma4:e4b    c6eb396dbd59    10 GB    100% GPU     131072     4 minutes from now"
+     ]
+    }
+   }
+  ],
+  "laya/v2": [
+   {
+    "load_ms": 340.07295799892745,
+    "model_id": "aac6fef/laya-mlx",
+    "laya_mlx_version": "0.2.0",
+    "warnings": [
+     "laya-mlx: this checkpoint ships temperatures outside [0.5, 5] which would distort confidence; clamping choice:11+=0.1006. Treat confidence from the affected buckets as uncalibrated."
+    ],
+    "results": [
+     {
+      "id": "t01",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 54.906332999962615,
+      "raw": {
+       "easy": 0.2196,
+       "hard": 0.7804
+      }
+     },
+     {
+      "id": "t02",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.899958998110378,
+      "raw": {
+       "easy": 0.6529,
+       "hard": 0.3471
+      }
+     },
+     {
+      "id": "t03",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.191666999802692,
+      "raw": {
+       "easy": 0.6416,
+       "hard": 0.3584
+      }
+     },
+     {
+      "id": "t04",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.582166000589496,
+      "raw": {
+       "easy": 0.7256,
+       "hard": 0.2744
+      }
+     },
+     {
+      "id": "t05",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 32.1442919994297,
+      "raw": {
+       "easy": 0.5836,
+       "hard": 0.4164
+      }
+     },
+     {
+      "id": "t06",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.68591600115178,
+      "raw": {
+       "easy": 0.496,
+       "hard": 0.504
+      }
+     },
+     {
+      "id": "t07",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.769500001246342,
+      "raw": {
+       "easy": 0.6292,
+       "hard": 0.3708
+      }
+     },
+     {
+      "id": "t08",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 32.30858400274883,
+      "raw": {
+       "easy": 0.658,
+       "hard": 0.342
+      }
+     },
+     {
+      "id": "t09",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.428291997144697,
+      "raw": {
+       "easy": 0.7555,
+       "hard": 0.2445
+      }
+     },
+     {
+      "id": "t10",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.202666999888606,
+      "raw": {
+       "easy": 0.6765,
+       "hard": 0.3235
+      }
+     },
+     {
+      "id": "t11",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.166042001132155,
+      "raw": {
+       "easy": 0.7797,
+       "hard": 0.2203
+      }
+     },
+     {
+      "id": "t12",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.254167002771283,
+      "raw": {
+       "easy": 0.6009,
+       "hard": 0.3991
+      }
+     },
+     {
+      "id": "t13",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.222583002090687,
+      "raw": {
+       "easy": 0.6135,
+       "hard": 0.3865
+      }
+     },
+     {
+      "id": "t14",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.158542002231115,
+      "raw": {
+       "easy": 0.6695,
+       "hard": 0.3305
+      }
+     },
+     {
+      "id": "t15",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.079791999218287,
+      "raw": {
+       "easy": 0.7634,
+       "hard": 0.2366
+      }
+     },
+     {
+      "id": "t16",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.153541996900458,
+      "raw": {
+       "easy": 0.7027,
+       "hard": 0.2973
+      }
+     },
+     {
+      "id": "t17",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.15129200159572,
+      "raw": {
+       "easy": 0.6698,
+       "hard": 0.3302
+      }
+     },
+     {
+      "id": "t18",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.154624997725477,
+      "raw": {
+       "easy": 0.7088,
+       "hard": 0.2912
+      }
+     },
+     {
+      "id": "t19",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.23454100204981,
+      "raw": {
+       "easy": 0.5502,
+       "hard": 0.4498
+      }
+     },
+     {
+      "id": "t20",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.107292001252063,
+      "raw": {
+       "easy": 0.5491,
+       "hard": 0.4509
+      }
+     },
+     {
+      "id": "t21",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.04929099936271,
+      "raw": {
+       "easy": 0.6701,
+       "hard": 0.3299
+      }
+     },
+     {
+      "id": "t22",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 30.750207999517443,
+      "raw": {
+       "easy": 0.5569,
+       "hard": 0.4431
+      }
+     },
+     {
+      "id": "t23",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.509832999290666,
+      "raw": {
+       "easy": 0.7025,
+       "hard": 0.2975
+      }
+     },
+     {
+      "id": "t24",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.11137499945471,
+      "raw": {
+       "easy": 0.802,
+       "hard": 0.198
+      }
+     },
+     {
+      "id": "t25",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.373415997222764,
+      "raw": {
+       "easy": 0.7569,
+       "hard": 0.2431
+      }
+     },
+     {
+      "id": "t26",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.50383300089743,
+      "raw": {
+       "easy": 0.5773,
+       "hard": 0.4227
+      }
+     },
+     {
+      "id": "t27",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.067791998793837,
+      "raw": {
+       "easy": 0.6276,
+       "hard": 0.3724
+      }
+     },
+     {
+      "id": "t28",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.18404199994984,
+      "raw": {
+       "easy": 0.5398,
+       "hard": 0.4602
+      }
+     },
+     {
+      "id": "t29",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.10370799913653,
+      "raw": {
+       "easy": 0.6701,
+       "hard": 0.3299
+      }
+     },
+     {
+      "id": "t30",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.094958001631312,
+      "raw": {
+       "easy": 0.6576,
+       "hard": 0.3424
+      }
+     },
+     {
+      "id": "t31",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.676834001700627,
+      "raw": {
+       "easy": 0.1928,
+       "hard": 0.8072
+      }
+     },
+     {
+      "id": "t32",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.383917001221562,
+      "raw": {
+       "easy": 0.3323,
+       "hard": 0.6677
+      }
+     },
+     {
+      "id": "t33",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.344040999101708,
+      "raw": {
+       "easy": 0.2681,
+       "hard": 0.7319
+      }
+     },
+     {
+      "id": "t34",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.37845799938077,
+      "raw": {
+       "easy": 0.2175,
+       "hard": 0.7825
+      }
+     },
+     {
+      "id": "t35",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.329916997492546,
+      "raw": {
+       "easy": 0.316,
+       "hard": 0.684
+      }
+     },
+     {
+      "id": "t36",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.249625000782544,
+      "raw": {
+       "easy": 0.4261,
+       "hard": 0.5739
+      }
+     },
+     {
+      "id": "t37",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.28558400203474,
+      "raw": {
+       "easy": 0.3385,
+       "hard": 0.6615
+      }
+     },
+     {
+      "id": "t38",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.222333000187064,
+      "raw": {
+       "easy": 0.2524,
+       "hard": 0.7476
+      }
+     },
+     {
+      "id": "t39",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.32237499812618,
+      "raw": {
+       "easy": 0.313,
+       "hard": 0.687
+      }
+     },
+     {
+      "id": "t40",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.28229199865018,
+      "raw": {
+       "easy": 0.4771,
+       "hard": 0.5229
+      }
+     },
+     {
+      "id": "t41",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.38454099826049,
+      "raw": {
+       "easy": 0.3602,
+       "hard": 0.6398
+      }
+     },
+     {
+      "id": "t42",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.396166999911657,
+      "raw": {
+       "easy": 0.2486,
+       "hard": 0.7514
+      }
+     },
+     {
+      "id": "t43",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.157749999692896,
+      "raw": {
+       "easy": 0.325,
+       "hard": 0.675
+      }
+     },
+     {
+      "id": "t44",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.677166000008583,
+      "raw": {
+       "easy": 0.1922,
+       "hard": 0.8078
+      }
+     },
+     {
+      "id": "t45",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.379833999380935,
+      "raw": {
+       "easy": 0.2885,
+       "hard": 0.7115
+      }
+     },
+     {
+      "id": "t46",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.189459001325304,
+      "raw": {
+       "easy": 0.3114,
+       "hard": 0.6886
+      }
+     },
+     {
+      "id": "t47",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.258625000191387,
+      "raw": {
+       "easy": 0.2855,
+       "hard": 0.7145
+      }
+     },
+     {
+      "id": "t48",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.129083999985596,
+      "raw": {
+       "easy": 0.4418,
+       "hard": 0.5582
+      }
+     },
+     {
+      "id": "t49",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.43945799820358,
+      "raw": {
+       "easy": 0.3124,
+       "hard": 0.6876
+      }
+     },
+     {
+      "id": "t50",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.159041998762405,
+      "raw": {
+       "easy": 0.3458,
+       "hard": 0.6542
+      }
+     },
+     {
+      "id": "t51",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.450416001462145,
+      "raw": {
+       "easy": 0.3333,
+       "hard": 0.6667
+      }
+     },
+     {
+      "id": "t52",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.180833000689745,
+      "raw": {
+       "easy": 0.2482,
+       "hard": 0.7518
+      }
+     },
+     {
+      "id": "t53",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 30.837624999549007,
+      "raw": {
+       "easy": 0.1606,
+       "hard": 0.8394
+      }
+     },
+     {
+      "id": "t54",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.30983300070511,
+      "raw": {
+       "easy": 0.4498,
+       "hard": 0.5502
+      }
+     },
+     {
+      "id": "t55",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.88820799914538,
+      "raw": {
+       "easy": 0.5307,
+       "hard": 0.4693
+      }
+     },
+     {
+      "id": "t56",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.598249999660766,
+      "raw": {
+       "easy": 0.5275,
+       "hard": 0.4725
+      }
+     },
+     {
+      "id": "t57",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.33075000005192,
+      "raw": {
+       "easy": 0.557,
+       "hard": 0.443
+      }
+     },
+     {
+      "id": "t58",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.401374999404652,
+      "raw": {
+       "easy": 0.5094,
+       "hard": 0.4906
+      }
+     },
+     {
+      "id": "t59",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.19950000109384,
+      "raw": {
+       "easy": 0.2022,
+       "hard": 0.7978
+      }
+     },
+     {
+      "id": "t60",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.245750000380212,
+      "raw": {
+       "easy": 0.4863,
+       "hard": 0.5137
+      }
+     }
+    ],
+    "env_before": {
+     "loadavg": [
+      3.22509765625,
+      2.5078125,
+      2.06591796875
+     ],
+     "time": "2026-09-26T19:51:36",
+     "ollama_ps": [
+      "gemma4:e4b    c6eb396dbd59    10 GB    100% GPU     131072     4 minutes from now"
+     ]
+    }
+   },
+   {
+    "load_ms": 1120.7379170009517,
+    "model_id": "aac6fef/laya-mlx",
+    "laya_mlx_version": "0.2.0",
+    "warnings": [
+     "laya-mlx: this checkpoint ships temperatures outside [0.5, 5] which would distort confidence; clamping choice:11+=0.1006. Treat confidence from the affected buckets as uncalibrated."
+    ],
+    "results": [
+     {
+      "id": "t01",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 60.386708999430994,
+      "raw": {
+       "easy": 0.2196,
+       "hard": 0.7804
+      }
+     },
+     {
+      "id": "t02",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.980916999600595,
+      "raw": {
+       "easy": 0.6529,
+       "hard": 0.3471
+      }
+     },
+     {
+      "id": "t03",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.435958000656683,
+      "raw": {
+       "easy": 0.6416,
+       "hard": 0.3584
+      }
+     },
+     {
+      "id": "t04",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.48808299738448,
+      "raw": {
+       "easy": 0.7256,
+       "hard": 0.2744
+      }
+     },
+     {
+      "id": "t05",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 32.254416997602675,
+      "raw": {
+       "easy": 0.5836,
+       "hard": 0.4164
+      }
+     },
+     {
+      "id": "t06",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.884707997960504,
+      "raw": {
+       "easy": 0.496,
+       "hard": 0.504
+      }
+     },
+     {
+      "id": "t07",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 32.33800000089104,
+      "raw": {
+       "easy": 0.6292,
+       "hard": 0.3708
+      }
+     },
+     {
+      "id": "t08",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 32.332165999832796,
+      "raw": {
+       "easy": 0.658,
+       "hard": 0.342
+      }
+     },
+     {
+      "id": "t09",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.434250002348563,
+      "raw": {
+       "easy": 0.7555,
+       "hard": 0.2445
+      }
+     },
+     {
+      "id": "t10",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.296291999751702,
+      "raw": {
+       "easy": 0.6765,
+       "hard": 0.3235
+      }
+     },
+     {
+      "id": "t11",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.091000000742497,
+      "raw": {
+       "easy": 0.7797,
+       "hard": 0.2203
+      }
+     },
+     {
+      "id": "t12",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.220833996485453,
+      "raw": {
+       "easy": 0.6009,
+       "hard": 0.3991
+      }
+     },
+     {
+      "id": "t13",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.432457999471808,
+      "raw": {
+       "easy": 0.6135,
+       "hard": 0.3865
+      }
+     },
+     {
+      "id": "t14",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.132334002904827,
+      "raw": {
+       "easy": 0.6695,
+       "hard": 0.3305
+      }
+     },
+     {
+      "id": "t15",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.05137499733246,
+      "raw": {
+       "easy": 0.7634,
+       "hard": 0.2366
+      }
+     },
+     {
+      "id": "t16",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.501334000495262,
+      "raw": {
+       "easy": 0.7027,
+       "hard": 0.2973
+      }
+     },
+     {
+      "id": "t17",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.2257090008643,
+      "raw": {
+       "easy": 0.6698,
+       "hard": 0.3302
+      }
+     },
+     {
+      "id": "t18",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.105500002013287,
+      "raw": {
+       "easy": 0.7088,
+       "hard": 0.2912
+      }
+     },
+     {
+      "id": "t19",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.2740000008489,
+      "raw": {
+       "easy": 0.5502,
+       "hard": 0.4498
+      }
+     },
+     {
+      "id": "t20",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.349917000625283,
+      "raw": {
+       "easy": 0.5491,
+       "hard": 0.4509
+      }
+     },
+     {
+      "id": "t21",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.279291997634573,
+      "raw": {
+       "easy": 0.6701,
+       "hard": 0.3299
+      }
+     },
+     {
+      "id": "t22",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.119375002162997,
+      "raw": {
+       "easy": 0.5569,
+       "hard": 0.4431
+      }
+     },
+     {
+      "id": "t23",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.106791997444816,
+      "raw": {
+       "easy": 0.7025,
+       "hard": 0.2975
+      }
+     },
+     {
+      "id": "t24",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.25812500002212,
+      "raw": {
+       "easy": 0.802,
+       "hard": 0.198
+      }
+     },
+     {
+      "id": "t25",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.34900000077323,
+      "raw": {
+       "easy": 0.7569,
+       "hard": 0.2431
+      }
+     },
+     {
+      "id": "t26",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.427041001734324,
+      "raw": {
+       "easy": 0.5773,
+       "hard": 0.4227
+      }
+     },
+     {
+      "id": "t27",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.232166998961475,
+      "raw": {
+       "easy": 0.6276,
+       "hard": 0.3724
+      }
+     },
+     {
+      "id": "t28",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.35900000052061,
+      "raw": {
+       "easy": 0.5398,
+       "hard": 0.4602
+      }
+     },
+     {
+      "id": "t29",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.06745900004171,
+      "raw": {
+       "easy": 0.6701,
+       "hard": 0.3299
+      }
+     },
+     {
+      "id": "t30",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.1481669996283,
+      "raw": {
+       "easy": 0.6576,
+       "hard": 0.3424
+      }
+     },
+     {
+      "id": "t31",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.772457998158643,
+      "raw": {
+       "easy": 0.1928,
+       "hard": 0.8072
+      }
+     },
+     {
+      "id": "t32",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.554666998999892,
+      "raw": {
+       "easy": 0.3323,
+       "hard": 0.6677
+      }
+     },
+     {
+      "id": "t33",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.35404199929326,
+      "raw": {
+       "easy": 0.2681,
+       "hard": 0.7319
+      }
+     },
+     {
+      "id": "t34",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.432790998223936,
+      "raw": {
+       "easy": 0.2175,
+       "hard": 0.7825
+      }
+     },
+     {
+      "id": "t35",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.212666002829792,
+      "raw": {
+       "easy": 0.316,
+       "hard": 0.684
+      }
+     },
+     {
+      "id": "t36",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 42.4611670023296,
+      "raw": {
+       "easy": 0.4261,
+       "hard": 0.5739
+      }
+     },
+     {
+      "id": "t37",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 100.08495800138917,
+      "raw": {
+       "easy": 0.3385,
+       "hard": 0.6615
+      }
+     },
+     {
+      "id": "t38",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 101.10829200129956,
+      "raw": {
+       "easy": 0.2524,
+       "hard": 0.7476
+      }
+     },
+     {
+      "id": "t39",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 87.70020900192321,
+      "raw": {
+       "easy": 0.313,
+       "hard": 0.687
+      }
+     },
+     {
+      "id": "t40",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 58.020499996928265,
+      "raw": {
+       "easy": 0.4771,
+       "hard": 0.5229
+      }
+     },
+     {
+      "id": "t41",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 49.417624999477994,
+      "raw": {
+       "easy": 0.3602,
+       "hard": 0.6398
+      }
+     },
+     {
+      "id": "t42",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 41.33516699948814,
+      "raw": {
+       "easy": 0.2486,
+       "hard": 0.7514
+      }
+     },
+     {
+      "id": "t43",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 39.45625000051223,
+      "raw": {
+       "easy": 0.325,
+       "hard": 0.675
+      }
+     },
+     {
+      "id": "t44",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 40.688707998924656,
+      "raw": {
+       "easy": 0.1922,
+       "hard": 0.8078
+      }
+     },
+     {
+      "id": "t45",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 39.17445899787708,
+      "raw": {
+       "easy": 0.2885,
+       "hard": 0.7115
+      }
+     },
+     {
+      "id": "t46",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 38.77841600115062,
+      "raw": {
+       "easy": 0.3114,
+       "hard": 0.6886
+      }
+     },
+     {
+      "id": "t47",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 38.92683300000499,
+      "raw": {
+       "easy": 0.2855,
+       "hard": 0.7145
+      }
+     },
+     {
+      "id": "t48",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 40.79970899692853,
+      "raw": {
+       "easy": 0.4418,
+       "hard": 0.5582
+      }
+     },
+     {
+      "id": "t49",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 39.62787500131526,
+      "raw": {
+       "easy": 0.3124,
+       "hard": 0.6876
+      }
+     },
+     {
+      "id": "t50",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 38.701749999745516,
+      "raw": {
+       "easy": 0.3458,
+       "hard": 0.6542
+      }
+     },
+     {
+      "id": "t51",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 38.19666699928348,
+      "raw": {
+       "easy": 0.3333,
+       "hard": 0.6667
+      }
+     },
+     {
+      "id": "t52",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 38.81166700011818,
+      "raw": {
+       "easy": 0.2482,
+       "hard": 0.7518
+      }
+     },
+     {
+      "id": "t53",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 41.60116699858918,
+      "raw": {
+       "easy": 0.1606,
+       "hard": 0.8394
+      }
+     },
+     {
+      "id": "t54",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 38.85783399891807,
+      "raw": {
+       "easy": 0.4498,
+       "hard": 0.5502
+      }
+     },
+     {
+      "id": "t55",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 38.55308299898752,
+      "raw": {
+       "easy": 0.5307,
+       "hard": 0.4693
+      }
+     },
+     {
+      "id": "t56",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 39.184833000035724,
+      "raw": {
+       "easy": 0.5275,
+       "hard": 0.4725
+      }
+     },
+     {
+      "id": "t57",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 39.98679099822766,
+      "raw": {
+       "easy": 0.557,
+       "hard": 0.443
+      }
+     },
+     {
+      "id": "t58",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 37.59287499997299,
+      "raw": {
+       "easy": 0.5094,
+       "hard": 0.4906
+      }
+     },
+     {
+      "id": "t59",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 38.74362499846029,
+      "raw": {
+       "easy": 0.2022,
+       "hard": 0.7978
+      }
+     },
+     {
+      "id": "t60",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 39.61499999786611,
+      "raw": {
+       "easy": 0.4863,
+       "hard": 0.5137
+      }
+     }
+    ],
+    "env_before": {
+     "loadavg": [
+      3.126953125,
+      2.4990234375,
+      2.0654296875
+     ],
+     "time": "2026-09-26T19:51:38",
+     "ollama_ps": [
+      "gemma4:e4b    c6eb396dbd59    10 GB    100% GPU     131072     4 minutes from now"
+     ]
+    }
+   },
+   {
+    "load_ms": 509.0581670010579,
+    "model_id": "aac6fef/laya-mlx",
+    "laya_mlx_version": "0.2.0",
+    "warnings": [
+     "laya-mlx: this checkpoint ships temperatures outside [0.5, 5] which would distort confidence; clamping choice:11+=0.1006. Treat confidence from the affected buckets as uncalibrated."
+    ],
+    "results": [
+     {
+      "id": "t01",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 63.846791003015824,
+      "raw": {
+       "easy": 0.2196,
+       "hard": 0.7804
+      }
+     },
+     {
+      "id": "t02",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.909457997244317,
+      "raw": {
+       "easy": 0.6529,
+       "hard": 0.3471
+      }
+     },
+     {
+      "id": "t03",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.553166998492088,
+      "raw": {
+       "easy": 0.6416,
+       "hard": 0.3584
+      }
+     },
+     {
+      "id": "t04",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.4578329998767,
+      "raw": {
+       "easy": 0.7256,
+       "hard": 0.2744
+      }
+     },
+     {
+      "id": "t05",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 32.11945900329738,
+      "raw": {
+       "easy": 0.5836,
+       "hard": 0.4164
+      }
+     },
+     {
+      "id": "t06",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.94008300124551,
+      "raw": {
+       "easy": 0.496,
+       "hard": 0.504
+      }
+     },
+     {
+      "id": "t07",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 32.361790999857476,
+      "raw": {
+       "easy": 0.6292,
+       "hard": 0.3708
+      }
+     },
+     {
+      "id": "t08",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 32.705500001611654,
+      "raw": {
+       "easy": 0.658,
+       "hard": 0.342
+      }
+     },
+     {
+      "id": "t09",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 32.20924999914132,
+      "raw": {
+       "easy": 0.7555,
+       "hard": 0.2445
+      }
+     },
+     {
+      "id": "t10",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 32.497958000021754,
+      "raw": {
+       "easy": 0.6765,
+       "hard": 0.3235
+      }
+     },
+     {
+      "id": "t11",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 37.23275000083959,
+      "raw": {
+       "easy": 0.7797,
+       "hard": 0.2203
+      }
+     },
+     {
+      "id": "t12",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 34.048792000248795,
+      "raw": {
+       "easy": 0.6009,
+       "hard": 0.3991
+      }
+     },
+     {
+      "id": "t13",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 33.86474999933853,
+      "raw": {
+       "easy": 0.6135,
+       "hard": 0.3865
+      }
+     },
+     {
+      "id": "t14",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 34.8020829987945,
+      "raw": {
+       "easy": 0.6695,
+       "hard": 0.3305
+      }
+     },
+     {
+      "id": "t15",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 34.236542000144254,
+      "raw": {
+       "easy": 0.7634,
+       "hard": 0.2366
+      }
+     },
+     {
+      "id": "t16",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 34.34516700144741,
+      "raw": {
+       "easy": 0.7027,
+       "hard": 0.2973
+      }
+     },
+     {
+      "id": "t17",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 34.37525000117603,
+      "raw": {
+       "easy": 0.6698,
+       "hard": 0.3302
+      }
+     },
+     {
+      "id": "t18",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 34.51891599979717,
+      "raw": {
+       "easy": 0.7088,
+       "hard": 0.2912
+      }
+     },
+     {
+      "id": "t19",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 34.426916998199886,
+      "raw": {
+       "easy": 0.5502,
+       "hard": 0.4498
+      }
+     },
+     {
+      "id": "t20",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 32.35866699833423,
+      "raw": {
+       "easy": 0.5491,
+       "hard": 0.4509
+      }
+     },
+     {
+      "id": "t21",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.24141599982977,
+      "raw": {
+       "easy": 0.6701,
+       "hard": 0.3299
+      }
+     },
+     {
+      "id": "t22",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.129250000958564,
+      "raw": {
+       "easy": 0.5569,
+       "hard": 0.4431
+      }
+     },
+     {
+      "id": "t23",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.249750001734355,
+      "raw": {
+       "easy": 0.7025,
+       "hard": 0.2975
+      }
+     },
+     {
+      "id": "t24",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.157041998085333,
+      "raw": {
+       "easy": 0.802,
+       "hard": 0.198
+      }
+     },
+     {
+      "id": "t25",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.09470799972769,
+      "raw": {
+       "easy": 0.7569,
+       "hard": 0.2431
+      }
+     },
+     {
+      "id": "t26",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.3697499987029,
+      "raw": {
+       "easy": 0.5773,
+       "hard": 0.4227
+      }
+     },
+     {
+      "id": "t27",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.07350000209408,
+      "raw": {
+       "easy": 0.6276,
+       "hard": 0.3724
+      }
+     },
+     {
+      "id": "t28",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.127540998568293,
+      "raw": {
+       "easy": 0.5398,
+       "hard": 0.4602
+      }
+     },
+     {
+      "id": "t29",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.114291999983834,
+      "raw": {
+       "easy": 0.6701,
+       "hard": 0.3299
+      }
+     },
+     {
+      "id": "t30",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.166082997515332,
+      "raw": {
+       "easy": 0.6576,
+       "hard": 0.3424
+      }
+     },
+     {
+      "id": "t31",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.89149999889196,
+      "raw": {
+       "easy": 0.1928,
+       "hard": 0.8072
+      }
+     },
+     {
+      "id": "t32",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.54466600244632,
+      "raw": {
+       "easy": 0.3323,
+       "hard": 0.6677
+      }
+     },
+     {
+      "id": "t33",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.246541999280453,
+      "raw": {
+       "easy": 0.2681,
+       "hard": 0.7319
+      }
+     },
+     {
+      "id": "t34",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.377291001263075,
+      "raw": {
+       "easy": 0.2175,
+       "hard": 0.7825
+      }
+     },
+     {
+      "id": "t35",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.30504100045073,
+      "raw": {
+       "easy": 0.316,
+       "hard": 0.684
+      }
+     },
+     {
+      "id": "t36",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.064874998264713,
+      "raw": {
+       "easy": 0.4261,
+       "hard": 0.5739
+      }
+     },
+     {
+      "id": "t37",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.149958998867078,
+      "raw": {
+       "easy": 0.3385,
+       "hard": 0.6615
+      }
+     },
+     {
+      "id": "t38",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.444874999579042,
+      "raw": {
+       "easy": 0.2524,
+       "hard": 0.7476
+      }
+     },
+     {
+      "id": "t39",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.7854159984563,
+      "raw": {
+       "easy": 0.313,
+       "hard": 0.687
+      }
+     },
+     {
+      "id": "t40",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.23174999927869,
+      "raw": {
+       "easy": 0.4771,
+       "hard": 0.5229
+      }
+     },
+     {
+      "id": "t41",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.633999999030493,
+      "raw": {
+       "easy": 0.3602,
+       "hard": 0.6398
+      }
+     },
+     {
+      "id": "t42",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.419750001077773,
+      "raw": {
+       "easy": 0.2486,
+       "hard": 0.7514
+      }
+     },
+     {
+      "id": "t43",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 30.86083299785969,
+      "raw": {
+       "easy": 0.325,
+       "hard": 0.675
+      }
+     },
+     {
+      "id": "t44",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 32.06912499808823,
+      "raw": {
+       "easy": 0.1922,
+       "hard": 0.8078
+      }
+     },
+     {
+      "id": "t45",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.30474999852595,
+      "raw": {
+       "easy": 0.2885,
+       "hard": 0.7115
+      }
+     },
+     {
+      "id": "t46",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 30.8963749994291,
+      "raw": {
+       "easy": 0.3114,
+       "hard": 0.6886
+      }
+     },
+     {
+      "id": "t47",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.23300000152085,
+      "raw": {
+       "easy": 0.2855,
+       "hard": 0.7145
+      }
+     },
+     {
+      "id": "t48",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.67191700049443,
+      "raw": {
+       "easy": 0.4418,
+       "hard": 0.5582
+      }
+     },
+     {
+      "id": "t49",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.925250001222594,
+      "raw": {
+       "easy": 0.3124,
+       "hard": 0.6876
+      }
+     },
+     {
+      "id": "t50",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 32.44887500113691,
+      "raw": {
+       "easy": 0.3458,
+       "hard": 0.6542
+      }
+     },
+     {
+      "id": "t51",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 32.64666700124508,
+      "raw": {
+       "easy": 0.3333,
+       "hard": 0.6667
+      }
+     },
+     {
+      "id": "t52",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 32.736375000240514,
+      "raw": {
+       "easy": 0.2482,
+       "hard": 0.7518
+      }
+     },
+     {
+      "id": "t53",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.83033299865201,
+      "raw": {
+       "easy": 0.1606,
+       "hard": 0.8394
+      }
+     },
+     {
+      "id": "t54",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.337917000200832,
+      "raw": {
+       "easy": 0.4498,
+       "hard": 0.5502
+      }
+     },
+     {
+      "id": "t55",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.334125000284985,
+      "raw": {
+       "easy": 0.5307,
+       "hard": 0.4693
+      }
+     },
+     {
+      "id": "t56",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.268415998056298,
+      "raw": {
+       "easy": 0.5275,
+       "hard": 0.4725
+      }
+     },
+     {
+      "id": "t57",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.17108300284599,
+      "raw": {
+       "easy": 0.557,
+       "hard": 0.443
+      }
+     },
+     {
+      "id": "t58",
+      "choice": "easy",
+      "status": "ok",
+      "latency_ms": 31.2722919989028,
+      "raw": {
+       "easy": 0.5094,
+       "hard": 0.4906
+      }
+     },
+     {
+      "id": "t59",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.202791000396246,
+      "raw": {
+       "easy": 0.2022,
+       "hard": 0.7978
+      }
+     },
+     {
+      "id": "t60",
+      "choice": "hard",
+      "status": "ok",
+      "latency_ms": 31.38408299855655,
+      "raw": {
+       "easy": 0.4863,
+       "hard": 0.5137
+      }
+     }
+    ],
+    "env_before": {
+     "loadavg": [
+      2.95654296875,
+      2.47412109375,
+      2.05908203125
+     ],
+     "time": "2026-09-26T19:51:42",
+     "ollama_ps": [
+      "gemma4:e4b    c6eb396dbd59    10 GB    100% GPU     131072     4 minutes from now"
+     ]
+    }
+   }
+  ]
+ }
+}

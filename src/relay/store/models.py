@@ -1,9 +1,10 @@
 """SQLAlchemy 2.x declarative models for the idea graph (SPEC section 7).
 
 Deviation from SPEC section 7: routing/gate decisions live in `router_decisions` (one row per
-backend per turn) instead of `turns.laya_intent/laya_ready/laya_confidence`.
-The migration in `migrations/versions/0001_initial.py` is the schema of record; these models
-mirror it for ORM use and Alembic autogenerate diffs.
+backend per turn, or per task for the task-difficulty router) instead of
+`turns.laya_intent/laya_ready/laya_confidence`.
+The migrations in `migrations/versions/` are the schema of record; these models mirror them
+for ORM use and Alembic autogenerate diffs.
 """
 
 from __future__ import annotations
@@ -34,11 +35,35 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 IDEA_STATUSES = ("exploring", "committed", "executing", "delivered", "abandoned")
 TASK_KINDS = ("code", "research")
 TASK_STATUSES = ("queued", "running", "succeeded", "failed")
-ARTIFACT_KINDS = ("pull_request", "document")
+# What a commitment promises (one per task kind; mirrored by delegator.scope.ArtifactKind).
+COMMITMENT_ARTIFACT_KINDS = ("pull_request", "document")
+# What an artifacts row records: a promised kind, or "branch" when a code task could not be
+# published and stays a committed branch in the idea's project folder (TASK-33).
+ARTIFACT_KINDS = (*COMMITMENT_ARTIFACT_KINDS, "branch")
 EDGE_RELATIONS = ("refines", "supersedes", "blocks", "spun_off_from")
 TURN_ROUTES = ("small_local", "frontier")
 TURN_ROLES = ("user", "assistant", "system", "tool")
 ROUTER_BACKENDS = ("frontier", "laya", "llm")
+# Outcome of a task-difficulty router call (TASK-46); anything but "ok" routed the task as hard.
+ROUTER_STATUSES = ("ok", "invalid", "timeout", "error")
+# Why a session ended (written by the voice client; see relay.client.listener):
+# - silence_timeout: the client's watchdog closed it after `silence_timeout_s` of silence;
+# - server_closed: the provider closed the conversation -- the agent's `end_call`, or a
+#   server-side limit (max duration, silence); the ElevenLabs SDK does not say which;
+# - connection_lost: the provider's connection thread died without a close;
+# - voice_ended: the voice session ended itself and gave no reason;
+# - start_failed: the voice session never started;
+# - client_exit: the client shut down (Ctrl-C) with the session open;
+# - stale_reconciled: left open by an earlier run and closed at its last activity on startup.
+SESSION_END_REASONS = (
+    "silence_timeout",
+    "server_closed",
+    "connection_lost",
+    "voice_ended",
+    "start_failed",
+    "client_exit",
+    "stale_reconciled",
+)
 
 NAMING_CONVENTION = {
     "ix": "ix_%(table_name)s_%(column_0_N_name)s",
@@ -95,6 +120,12 @@ class Idea(Base):
 
 class Session(Base):
     __tablename__ = "sessions"
+    __table_args__ = (
+        CheckConstraint(
+            f"end_reason IS NULL OR {in_list('end_reason', SESSION_END_REASONS)}",
+            name="end_reason",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     started_at: Mapped[datetime] = mapped_column(
@@ -102,6 +133,8 @@ class Session(Base):
     )
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     wake_trigger: Mapped[str | None] = mapped_column(Text)
+    # NULL while open, and for sessions ended before 0003 or by a writer that knows no reason.
+    end_reason: Mapped[str | None] = mapped_column(Text)
 
 
 class Turn(Base):
@@ -132,7 +165,11 @@ class Turn(Base):
 
 class Commitment(Base):
     __tablename__ = "commitments"
-    __table_args__ = (Index("ix_commitments_idea_id", "idea_id"),)
+    __table_args__ = (
+        Index("ix_commitments_idea_id", "idea_id"),
+        Index("ix_commitments_session_id", "session_id"),
+        Index("ix_commitments_assent_turn_id", "assent_turn_id"),
+    )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     idea_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("ideas.id"), nullable=False)
@@ -144,6 +181,10 @@ class Commitment(Base):
     assent_utterance: Mapped[str] = mapped_column(Text, nullable=False)
     assented_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = _created_at()
+    # The session the user agreed in, and the user turn classified as the yes. NULL for rows
+    # written before 0003; assent_turn_id is also NULL when that turn could not be persisted.
+    session_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sessions.id"))
+    assent_turn_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("turns.id"))
 
 
 class Task(Base):
@@ -164,6 +205,8 @@ class Task(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _created_at()
+    # `<provider>:<model>` that produced the final answer (a fallback, if the primary failed).
+    served_model: Mapped[str | None] = mapped_column(Text)
 
 
 class Artifact(Base):
@@ -201,26 +244,50 @@ class RouterDecision(Base):
     __tablename__ = "router_decisions"
     __table_args__ = (
         CheckConstraint(in_list("backend", ROUTER_BACKENDS), name="backend"),
+        # A decision is about a user turn (voice routing) or a dispatched task (difficulty).
+        CheckConstraint("turn_id IS NOT NULL OR task_id IS NOT NULL", name="turn_or_task"),
+        CheckConstraint(
+            f"router_status IS NULL OR {in_list('router_status', ROUTER_STATUSES)}",
+            name="router_status",
+        ),
         Index("ix_router_decisions_turn_id", "turn_id"),
-        # At most one decision per turn may be the one that actually drove routing.
+        Index("ix_router_decisions_task_id", "task_id"),
+        # At most one turn-level decision per turn may be the one that actually drove routing.
+        # Task rows are excluded: a task decision also points at its assent turn (turn_id),
+        # which may carry its own active turn-level decision.
         Index(
             "uq_router_decisions_active",
             "turn_id",
+            unique=True,
+            postgresql_where=sa_text("is_active AND task_id IS NULL"),
+        ),
+        # A task is routed once: at most one active decision per task.
+        Index(
+            "uq_router_decisions_task_active",
+            "task_id",
             unique=True,
             postgresql_where=sa_text("is_active"),
         ),
     )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
-    turn_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("turns.id"), nullable=False)
+    turn_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("turns.id"))
+    task_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tasks.id"))
     backend: Mapped[str] = mapped_column(Text, nullable=False)
     difficulty: Mapped[str | None] = mapped_column(Text)
     ready: Mapped[str | None] = mapped_column(Text)
     intent: Mapped[str | None] = mapped_column(Text)
     confidence: Mapped[float | None] = mapped_column(Float)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
-    # True for the backend whose decision actually drove routing on this turn.
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    cost_usd: Mapped[float | None] = mapped_column(Float)
+    # True for the backend whose decision actually drove routing on this turn / task.
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # Task-difficulty router: the `<provider>:<model>` picked as primary for the task, and
+    # whether the router answered ("ok") or the fail-safe applied (invalid/timeout/error).
+    model_chosen: Mapped[str | None] = mapped_column(Text)
+    router_status: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _created_at()
 
 

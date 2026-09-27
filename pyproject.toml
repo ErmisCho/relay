@@ -17,14 +17,16 @@ dependencies = [
   "anthropic>=1.8.0",
   "dbos>=3.1.0",
   "pydantic-ai-slim[anthropic,dbos,duckduckgo,openai]>=2.51.0",
-  "trafilatura>=2.2.0",
   "elevenlabs>=2.69.0",
   "openwakeword>=0.4.0",
   "sounddevice>=0.5.6",
   "numpy>=2.5.3",
+  "pydantic-ai-harness[coder,dbos,researcher]>=0.36.0",
+  "laya-mlx==0.2.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'",
 ]
 
-[project.optional-dependencies]
+# A dependency group (not an extra) so plain `uv add/remove/sync` keeps the dev tools installed.
+[dependency-groups]
 dev = [
   "pytest>=8.0",
   "pytest-asyncio>=0.23",
@@ -46,6 +48,10 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# Markdown table rows in the generated benchmark report.
+"benchmarks/router/run_benchmark.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

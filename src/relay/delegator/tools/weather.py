@@ -3,7 +3,10 @@
 Deliberate scope expansion beyond SPEC.md's two verticals (user decision,
 2026-09-26): answers directly in conversation, never through the commitment
 protocol. Uses Open-Meteo (free, keyless) so no settings/API key surface is
-needed.
+needed. With no location it geolocates this machine's public IP (ipwho.is,
+keyless): the Delegator runs on the user's own machine, the same assumption
+``hardware_capabilities`` makes. The request's own client IP would be
+ElevenLabs' cloud, not the user.
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ from relay.delegator.contracts import ToolContext, ToolResult
 
 _GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
 _FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+_IP_GEO_URL = "https://ipwho.is/"
 
 # WMO weather codes (https://open-meteo.com/en/docs), collapsed to short phrases.
 _WMO_CODES: dict[int, str] = {
@@ -54,16 +58,19 @@ class GetWeatherTool:
     """``InternalTool`` reporting current weather for a named location."""
 
     name = "get_weather"
-    description = "Look up current weather conditions for a named location."
+    direct_response = True
+    description = (
+        "Look up current weather. If the user names no place, call it WITHOUT a location - "
+        "it is then located from the user's IP address. Don't ask the user for a city."
+    )
     parameters: dict[str, Any] = {
         "type": "object",
         "properties": {
             "location": {
                 "type": "string",
-                "description": "A place name, e.g. 'Berlin' or 'Berlin, DE'.",
+                "description": "A place name, e.g. 'Berlin' or 'Berlin, DE'. Omit if not named.",
             }
         },
-        "required": ["location"],
         "additionalProperties": False,
     }
 
@@ -74,20 +81,25 @@ class GetWeatherTool:
         self._client_factory = client_factory
 
     async def __call__(self, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
-        location = str(args.get("location", "")).strip()
-        if not location:
-            return ToolResult("I need a place name to check the weather.", rejected=True)
-
+        location = str(args.get("location") or "").strip()
+        by_ip = not location
         try:
             async with await self._client_factory() as client:
-                geo = await client.get(_GEOCODE_URL, params={"name": location, "count": 1})
-                geo.raise_for_status()
-                results = geo.json().get("results") or []
-                if not results:
-                    return ToolResult(f"I couldn't find a place called {location!r}.")
-                place = results[0]
+                if by_ip:
+                    geo = await client.get(_IP_GEO_URL)
+                    geo.raise_for_status()
+                    place = geo.json()
+                    if not place.get("success"):
+                        return ToolResult("I couldn't work out where you are - which city?")
+                else:
+                    geo = await client.get(_GEOCODE_URL, params={"name": location, "count": 1})
+                    geo.raise_for_status()
+                    results = geo.json().get("results") or []
+                    if not results:
+                        return ToolResult(f"I couldn't find a place called {location!r}.")
+                    place = results[0]
                 lat, lon = place["latitude"], place["longitude"]
-                label = place.get("name", location)
+                label = place.get("city") or place.get("name") or location
 
                 fc = await client.get(
                     _FORECAST_URL,
@@ -96,7 +108,8 @@ class GetWeatherTool:
                 fc.raise_for_status()
                 current = fc.json().get("current_weather")
         except (httpx.HTTPError, KeyError, ValueError):
-            return ToolResult(f"I couldn't reach the weather service for {location!r} right now.")
+            where = "your location" if by_ip else repr(location)
+            return ToolResult(f"I couldn't reach the weather service for {where} right now.")
 
         if not current:
             return ToolResult(f"I couldn't get current conditions for {label}.")
@@ -104,6 +117,9 @@ class GetWeatherTool:
         sky = describe_wmo_code(int(current["weathercode"]))
         temp = current["temperature"]
         wind = current["windspeed"]
+        # Spoken verbatim (direct_response): say the place is a guess, or a wrong city
+        # sounds like a fact.
+        prefix = f"Based on your IP address you seem to be near {label}. " if by_ip else ""
         return ToolResult(
-            f"In {label} it's currently {temp:.0f}°C with {sky}, wind {wind:.0f} km/h."
+            f"{prefix}In {label} it's currently {temp:.0f}°C with {sky}, wind {wind:.0f} km/h."
         )

@@ -1,4 +1,4 @@
-"""Acceptance tests for TASK-21: the 0001_initial migration against a real Postgres."""
+"""Acceptance tests for the relay database migrations."""
 
 from __future__ import annotations
 
@@ -16,24 +16,25 @@ from tests.conftest import alembic_config
 
 EXPECTED_COLUMNS: dict[str, set[str]] = {
     "ideas": {"id", "title", "summary", "status", "maturity", "created_at", "updated_at"},
-    "sessions": {"id", "started_at", "ended_at", "wake_trigger"},
+    "sessions": {"id", "started_at", "ended_at", "wake_trigger", "end_reason"},
     "turns": {
         "id", "session_id", "idea_id", "role", "text", "ts", "route", "model_used",
         "latency_ms", "metadata",
     },
     "commitments": {
         "id", "idea_id", "goal", "scope_excludes", "artifact_kind", "readback_text",
-        "assent_utterance", "assented_at", "created_at",
+        "assent_utterance", "assented_at", "created_at", "session_id", "assent_turn_id",
     },
     "tasks": {
         "id", "commitment_id", "kind", "dbos_workflow_id", "status", "started_at",
-        "finished_at", "error", "created_at",
+        "finished_at", "error", "created_at", "served_model",
     },
     "artifacts": {"id", "task_id", "kind", "url", "summary", "reviewed_at", "created_at"},
     "idea_edges": {"from_idea", "to_idea", "relation", "created_at"},
     "router_decisions": {
-        "id", "turn_id", "backend", "difficulty", "ready", "intent", "confidence",
-        "latency_ms", "is_active", "created_at",
+        "id", "turn_id", "task_id", "backend", "difficulty", "ready", "intent", "confidence",
+        "latency_ms", "input_tokens", "output_tokens", "cost_usd", "is_active",
+        "model_chosen", "router_status", "created_at",
     },
     "pending_reports": {
         "id", "session_id", "idea_id", "task_id", "summary", "created_at", "offered_at",
@@ -44,13 +45,19 @@ EXPECTED_COLUMNS: dict[str, set[str]] = {
 EXPECTED_INDEXES: dict[str, dict[str, list[str | None]]] = {
     "ideas": {"ix_ideas_fts": [None]},  # expression (GIN) index
     "turns": {"ix_turns_session_id_ts": ["session_id", "ts"], "ix_turns_idea_id": ["idea_id"]},
-    "commitments": {"ix_commitments_idea_id": ["idea_id"]},
+    "commitments": {
+        "ix_commitments_idea_id": ["idea_id"],
+        "ix_commitments_session_id": ["session_id"],
+        "ix_commitments_assent_turn_id": ["assent_turn_id"],
+    },
     "tasks": {"ix_tasks_status": ["status"], "ix_tasks_commitment_id": ["commitment_id"]},
     "artifacts": {"ix_artifacts_task_id": ["task_id"]},
     "idea_edges": {"ix_idea_edges_to_idea": ["to_idea"]},
     "router_decisions": {
         "ix_router_decisions_turn_id": ["turn_id"],
         "uq_router_decisions_active": ["turn_id"],
+        "ix_router_decisions_task_id": ["task_id"],
+        "uq_router_decisions_task_active": ["task_id"],
     },
     "pending_reports": {
         "ix_pending_reports_session_id": ["session_id"],
@@ -177,6 +184,13 @@ _BAD: dict[str, Callable[[Connection], object]] = {
     "ck_router_decisions_backend": lambda c: _insert(
         c, "router_decisions", turn_id=_turn(c), backend="jev"
     ),
+    "ck_router_decisions_turn_or_task": lambda c: _insert(
+        c, "router_decisions", backend="llm", difficulty="hard"
+    ),
+    "ck_sessions_end_reason": lambda c: _insert(c, "sessions", end_reason="bored"),
+    "ck_router_decisions_router_status": lambda c: _insert(
+        c, "router_decisions", task_id=_task(c), backend="llm", router_status="maybe"
+    ),
 }
 
 
@@ -230,6 +244,127 @@ def test_only_one_active_router_decision_per_turn(db_conn: Connection) -> None:
     with pytest.raises(IntegrityError) as exc:
         _insert(db_conn, "router_decisions", turn_id=turn_id, backend="laya", is_active=True)
     assert exc.value.orig.diag.constraint_name == "uq_router_decisions_active"  # type: ignore[union-attr]
+
+
+# --- TASK-46: task-level difficulty decisions -----------------------------------------------
+
+
+def test_task_level_router_decision_without_turn(db_conn: Connection) -> None:
+    task_id = _task(db_conn)
+    _insert(db_conn, "router_decisions", task_id=task_id, backend="llm", difficulty="easy",
+            latency_ms=560, is_active=True, model_chosen="ollama:gemma4:e4b",
+            router_status="ok")
+    row = db_conn.execute(
+        text("SELECT turn_id, difficulty, model_chosen FROM router_decisions WHERE task_id = :t"),
+        {"t": task_id},
+    ).one()
+    assert tuple(row) == (None, "easy", "ollama:gemma4:e4b")
+
+
+def test_only_one_active_router_decision_per_task(db_conn: Connection) -> None:
+    task_id = _task(db_conn)
+    _insert(db_conn, "router_decisions", task_id=task_id, backend="llm")  # inactive: fine
+    _insert(db_conn, "router_decisions", task_id=task_id, backend="llm", is_active=True)
+    with pytest.raises(IntegrityError) as exc:
+        _insert(db_conn, "router_decisions", task_id=task_id, backend="llm", is_active=True)
+    assert exc.value.orig.diag.constraint_name == "uq_router_decisions_task_active"  # type: ignore[union-attr]
+
+
+def test_task_decision_on_the_assent_turn_coexists_with_the_turn_level_one(
+    db_conn: Connection,
+) -> None:
+    # TASK-46 AC#1: the executor links its task decision to the assent turn, which already
+    # carries the ready gate's active decision. Before 0003 the turn-wide unique index made
+    # that insert fail and the routing step crash.
+    turn_id = _turn(db_conn)
+    _insert(db_conn, "router_decisions", turn_id=turn_id, backend="frontier", is_active=True)
+    _insert(db_conn, "router_decisions", turn_id=turn_id, task_id=_task(db_conn), backend="llm",
+            is_active=True)
+    with pytest.raises(IntegrityError) as exc:  # the turn-level rule still holds
+        _insert(db_conn, "router_decisions", turn_id=turn_id, backend="laya", is_active=True)
+    assert exc.value.orig.diag.constraint_name == "uq_router_decisions_active"  # type: ignore[union-attr]
+
+
+def test_router_decision_with_unknown_task_is_rejected(db_conn: Connection) -> None:
+    with pytest.raises(IntegrityError, match="fk_router_decisions_task_id_tasks"):
+        _insert(db_conn, "router_decisions", task_id=uuid.uuid4(), backend="llm")
+
+
+def test_0002_downgrade_restores_0001_schema_and_upgrades_again(
+    make_database: Callable[[], str],
+) -> None:
+    url = make_database()
+    cfg = alembic_config(url)
+    command.upgrade(cfg, "head")
+    engine = create_engine(to_sync_url(url))
+    try:
+        with engine.begin() as conn:
+            turn_id = _turn(conn)
+            _insert(conn, "router_decisions", turn_id=turn_id, backend="laya", is_active=True)
+            _insert(conn, "router_decisions", task_id=_task(conn), backend="llm", is_active=True)
+        command.downgrade(cfg, "0001_initial")
+        with engine.connect() as conn:
+            insp = inspect(conn)
+            cols = {c["name"]: c for c in insp.get_columns("router_decisions")}
+            added = {
+                "task_id", "model_chosen", "router_status",
+                "input_tokens", "output_tokens", "cost_usd",
+            }
+            assert set(cols) == EXPECTED_COLUMNS["router_decisions"] - added
+            assert cols["turn_id"]["nullable"] is False
+            assert "served_model" not in {c["name"] for c in insp.get_columns("tasks")}
+            names = {ix["name"] for ix in insp.get_indexes("router_decisions")}
+            assert names == {"ix_router_decisions_turn_id", "uq_router_decisions_active"}
+            # Turn-level decisions survive; task-level ones (no turn) cannot.
+            kept = conn.execute(text("SELECT turn_id FROM router_decisions")).scalars().all()
+            assert kept == [turn_id]
+        command.upgrade(cfg, "head")
+        with engine.connect() as conn:
+            cols_after = {c["name"] for c in inspect(conn).get_columns("router_decisions")}
+            assert cols_after == EXPECTED_COLUMNS["router_decisions"]
+    finally:
+        engine.dispose()
+
+
+def test_0003_downgrade_restores_0002_schema_and_upgrades_again(
+    make_database: Callable[[], str],
+) -> None:
+    url = make_database()
+    cfg = alembic_config(url)
+    command.upgrade(cfg, "head")
+    engine = create_engine(to_sync_url(url))
+    try:
+        with engine.begin() as conn:
+            session_id = _insert(conn, "sessions", end_reason="silence_timeout")
+            turn_id = _insert(conn, "turns", session_id=session_id, role="user", text="yes")
+            _commitment(conn, session_id=session_id, assent_turn_id=turn_id)
+            _insert(conn, "router_decisions", turn_id=turn_id, backend="frontier", is_active=True)
+            # Would violate the pre-0003 turn-wide index unless the downgrade unlinks it.
+            _insert(conn, "router_decisions", turn_id=turn_id, task_id=_task(conn),
+                    backend="llm", is_active=True)
+        command.downgrade(cfg, "0002_task_routing")
+        with engine.connect() as conn:
+            insp = inspect(conn)
+            assert "end_reason" not in {c["name"] for c in insp.get_columns("sessions")}
+            commitment_cols = {c["name"] for c in insp.get_columns("commitments")}
+            assert commitment_cols == EXPECTED_COLUMNS["commitments"] - {
+                "session_id", "assent_turn_id"
+            }
+            rows = conn.execute(
+                text("SELECT turn_id, task_id IS NOT NULL FROM router_decisions ORDER BY 2")
+            ).all()
+            assert [tuple(r) for r in rows] == [(turn_id, False), (None, True)]
+        command.upgrade(cfg, "head")
+        with engine.connect() as conn:
+            insp = inspect(conn)
+            assert {c["name"] for c in insp.get_columns("commitments")} == EXPECTED_COLUMNS[
+                "commitments"
+            ]
+            assert {c["name"] for c in insp.get_columns("sessions")} == EXPECTED_COLUMNS[
+                "sessions"
+            ]
+    finally:
+        engine.dispose()
 
 
 # --- AC5: downgrade base removes the schema cleanly ------------------------------------------

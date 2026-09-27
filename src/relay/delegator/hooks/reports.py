@@ -92,7 +92,7 @@ def previous_assistant_text(messages: list[dict[str, Any]]) -> str:
 def full_note(summary: str) -> str:
     return (
         f'A delegated task finished. At a natural point, tell the user this sentence verbatim: "'
-        f'{summary}" The document link is stored in the idea.'
+        f'{summary}" The link is stored in the idea.'
     )
 
 
