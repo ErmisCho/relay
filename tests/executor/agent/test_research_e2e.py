@@ -72,6 +72,10 @@ async def test_research_commitment_writes_markdown_document(
     assert all(f"<{u}>" in sources for u in STUB_SOURCES)
     # Rendering adds nothing beyond the brief: no excluded content sneaks in.
     assert "Zebrakettle" not in doc and "price" not in doc.lower()
+    # The same brief is saved in the idea's project folder, where the idea's code lives too.
+    saved = list((worker.flag_dir / "projects" / str(s.idea_id) / "research").glob("*.md"))
+    assert len(saved) == 1, saved
+    assert saved[0].name.endswith(f"-{str(task_id)[:8]}.md") and saved[0].read_text() == doc
 
     with sync_engine.connect() as c:
         idea_status: str = c.execute(

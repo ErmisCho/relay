@@ -16,6 +16,7 @@ import tempfile
 import uuid
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlsplit
 
 from dbos import DBOS, SetWorkflowTimeout
 from dbos._error import DBOSAwaitedWorkflowCancelledError
@@ -37,6 +38,7 @@ from relay.executor.agent.agent import (
 from relay.executor.routing import route_task
 from relay.executor.runners import ArtifactSpec, TaskContext, register_runner
 from relay.executor.workflows import db_step, engine
+from relay.executor.workspace import _slugify
 from relay.store.models import Commitment, Idea, RouterDecision, Task
 
 WORKFLOW_NAME = "relay.research.run"
@@ -196,6 +198,25 @@ def render_step(artifacts_dir: str, idea_id: str, task_id: str, brief: dict[str,
     return path.as_uri()
 
 
+def project_document_path(workspace: str, title: str, task_id: str) -> Path:
+    """``<project>/research/<title slug>-<task id prefix>.md``: one file per task, stable."""
+    return Path(workspace) / "research" / f"{_slugify(title)}-{task_id[:8]}.md"
+
+
+@DBOS.step(name="relay.executor.save_to_project")
+def save_to_project_step(workspace: str, task_id: str, document_url: str) -> str:
+    """Copy the rendered brief into the idea's project folder, next to any code for the idea.
+
+    The artifact URL stays the ``artifacts_dir`` copy (the demo API only serves from there);
+    this copy is what the user finds when opening the project. Returns its path.
+    """
+    markdown = Path(unquote(urlsplit(document_url).path)).read_text(encoding="utf-8")
+    title = markdown.partition("\n")[0].removeprefix("# ").strip()
+    path = project_document_path(workspace, title, task_id)
+    write_document(path, markdown)
+    return str(path)
+
+
 def run_executor_task(ctx: TaskContext) -> ArtifactSpec:
     """Durable runner (called from the ``run_task`` workflow body): steps + child workflow."""
     route = record_route_step(str(ctx.task_id), route_step(ctx.goal, ctx.scope_excludes))
@@ -212,6 +233,8 @@ def run_executor_task(ctx: TaskContext) -> ArtifactSpec:
     except DBOSAwaitedWorkflowCancelledError as exc:
         raise TimeoutError(f"{ctx.kind} did not finish within {timeout_s:g} s") from exc
     url = render_step(ctx.artifacts_dir, str(ctx.idea_id), str(ctx.task_id), brief)
+    saved = save_to_project_step(workspace, str(ctx.task_id), url)
+    DBOS.logger.info(f"{ctx.kind} task {ctx.task_id}: brief saved to {saved}")
     served_model = brief.get("served_model")
     DBOS.logger.info(f"{ctx.kind} task {ctx.task_id}: served by {served_model}")
     return ArtifactSpec(
