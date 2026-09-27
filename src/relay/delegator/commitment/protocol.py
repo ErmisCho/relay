@@ -260,7 +260,8 @@ class ProposeCommitmentTool:
             "answer_first": {
                 "type": "string",
                 "description": (
-                    "Optional. One short spoken sentence answering any part of the user's "
+                    "Optional. One short spoken statement (never a question) answering any part "
+                    "of the user's "
                     "message that needs no handoff (advice, an opinion, an explanation), e.g. "
                     "'Singing starts with breath control and a weekly lesson.' Spoken before "
                     "the confirmation question. Omit when the whole message is the handoff. "
