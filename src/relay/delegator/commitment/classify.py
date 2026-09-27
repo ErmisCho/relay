@@ -238,6 +238,92 @@ async def classify_assent(
     return done(AssentLabel(raw), "model")
 
 
+# --- directive: may a proposal start without a read-back? ---------------------------------
+
+
+class DirectiveLabel(StrEnum):
+    DIRECTIVE = "directive"
+    EXPLORING = "exploring"
+
+
+DIRECTIVE_SYSTEM_PROMPT = """\
+You judge whether the user's latest message TELLS an assistant to go and do a piece of work \
+now, or whether they are still exploring. On "directive" the work starts immediately without \
+asking back, so when in any doubt answer "exploring".
+
+Labels:
+- directive: a plain instruction or request to do the work, possibly politely phrased \
+("look into X and write it up", "build me a script that...", "check my disk space", "can you \
+research Y for me", "yes, let's do that, build it" after the assistant suggested it).
+- exploring: asking for the assistant's feedback, opinion, ideas or suggestions, weighing \
+options, thinking out loud, asking a question about the topic, or anything hesitant \
+("what do you think about building X?", "maybe we could research Y", "any ideas?", \
+"should I...", "I'm thinking about...").
+
+The work the assistant would start is given for context; judge only whether the user asked \
+for it to be done now. Reply with only a JSON object: {"label": "directive"} or \
+{"label": "exploring"}"""
+
+DIRECTIVE_TOOL = "classify_directive"
+
+# May only ever short-circuit AWAY from directive; never to it.
+_EXPLORING = re.compile(
+    r"\b(?:what do you think|your (?:thoughts|opinion|take|feedback)|any (?:ideas|thoughts)"
+    r"|give me (?:some |new |more )?(?:\w+ )?(?:ideas|suggestions|feedback)"
+    r"|should i|should we|maybe|perhaps|not sure|i wonder|wondering|what if"
+    r"|thinking (?:about|of)|brainstorm|hold on|wait|not yet|don'?t)\b"
+)
+
+
+def directive_user_prompt(previous: str, utterance: str, goal: str) -> str:
+    return (
+        f'Assistant\'s previous message: "{" ".join(previous.split())}"\n'
+        f'User\'s latest message: "{" ".join(utterance.split())}"\n'
+        f'Work the assistant would start: "{goal}"\n'
+        "Which label fits the user's latest message?"
+    )
+
+
+@dataclass(frozen=True)
+class DirectiveResult:
+    label: DirectiveLabel
+    # "precheck", "model" or "error" (timeout / failure / unparseable -> EXPLORING).
+    source: str
+    latency_ms: int
+
+
+async def classify_directive(
+    model: ChatModel | None,
+    previous: str,
+    utterance: str,
+    goal: str,
+    *,
+    timeout: float = ASSENT_TIMEOUT_S,
+) -> DirectiveResult:
+    """Label the user's request. Only a model-confirmed ``directive`` skips the read-back."""
+    started = time.perf_counter()
+
+    def done(label: DirectiveLabel, source: str) -> DirectiveResult:
+        return DirectiveResult(label, source, round((time.perf_counter() - started) * 1000))
+
+    text = " ".join(utterance.lower().replace("’", "'").split())
+    if not text.strip(" .,!?…-") or _EXPLORING.search(text):
+        return done(DirectiveLabel.EXPLORING, "precheck")
+    if model is None:
+        return done(DirectiveLabel.EXPLORING, "error")
+    raw = await structured_label(
+        model,
+        system=DIRECTIVE_SYSTEM_PROMPT,
+        user=directive_user_prompt(previous, utterance, goal),
+        tool_name=DIRECTIVE_TOOL,
+        options=tuple(label.value for label in DirectiveLabel),
+        timeout=timeout,
+    )
+    if raw is None:
+        return done(DirectiveLabel.EXPLORING, "error")
+    return done(DirectiveLabel(raw), "model")
+
+
 # --- ready score (hint + audit, never a trigger) -----------------------------------------
 
 READY_OPTIONS = ("keep_talking", "ready_to_execute")

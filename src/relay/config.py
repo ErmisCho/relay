@@ -130,6 +130,10 @@ class Settings(BaseSettings):
     elevenlabs_api_key: str | None = None
     elevenlabs_agent_id: str | None = None
 
+    # Start a proposed task without the read-back + "yes" when the user's own request was a
+    # plain instruction (not a request for feedback or ideas); off = always read back and ask.
+    direct_dispatch: bool = True
+
     # --- Demo website (TASK-42) ------------------------------------------------------------
     # Passcode for the /demo API; empty (the default) disables every /demo route (404).
     demo_passcode: str = ""
