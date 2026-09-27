@@ -35,6 +35,9 @@ dev = [
   "respx>=0.23.1",
 ]
 
+[project.scripts]
+relay = "relay.run:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

@@ -94,6 +94,26 @@ def _cookie_key(settings: Settings) -> bytes:
     return hashlib.sha256(seed.encode("utf-8")).digest()
 
 
+_LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
+
+
+def is_local_request(request: Request) -> bool:
+    """Opened in a browser on this machine, not through the ngrok tunnel: no passcode needed.
+
+    The peer address alone is not enough - ngrok's agent connects from localhost too. A
+    tunnelled request always carries ``X-Forwarded-For`` and the public ``Host``, so both
+    must be absent/local. The public tunnel keeps the passcode: the demo API can spend
+    ElevenLabs minutes and dispatch executor work.
+    """
+    peer = request.client.host if request.client else ""
+    host = (request.headers.get("host") or "").rsplit(":", 1)[0].strip("[]")
+    return (
+        peer in _LOCAL_HOSTS
+        and host in _LOCAL_HOSTS
+        and "x-forwarded-for" not in request.headers
+    )
+
+
 def make_cookie(settings: Settings, now: float) -> str:
     issued = str(int(now))
     sig = hmac.new(_cookie_key(settings), issued.encode(), hashlib.sha256).hexdigest()
@@ -414,6 +434,8 @@ def build_router(rt: DemoRuntime) -> APIRouter:
     settings = rt.settings
 
     async def require_cookie(request: Request) -> None:
+        if is_local_request(request):
+            return
         if not cookie_valid(settings, request.cookies.get(COOKIE), time.time()):
             raise DemoError(401, "unauthorized")
 

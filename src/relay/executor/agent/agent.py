@@ -20,6 +20,7 @@ durable history of a run is the same whichever route it took. The agent's own de
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import threading
@@ -39,10 +40,11 @@ from pydantic_ai.capabilities import (
     WebSearch,
 )
 from pydantic_ai.durable_exec.dbos import DBOSDurability
-from pydantic_ai.models import Model
+from pydantic_ai.models import AbstractModel, Model
 from pydantic_ai.models.fallback import FallbackModel
 from pydantic_ai_harness.coder import Coder
 from pydantic_ai_harness.compaction import ClearToolResults
+from pydantic_ai_harness.planning import Planning
 from pydantic_ai_harness.researcher import DEFAULT_RESEARCHER_INSTRUCTIONS
 from pydantic_ai_harness.shell import LLM_API_KEY_ENV_PATTERNS, Shell
 from pydantic_ai_harness.tool_output_limits import Band, ToolOutputLimits, Truncate
@@ -72,6 +74,52 @@ _PROVIDER_DEFAULT_EFFORTS = frozenset({"", "default"})
 MODEL_TIMEOUT = httpx2.Timeout(120.0, connect=5.0)  # openai/anthropic SDKs are built on httpx2
 # FallbackModel is the retry: an SDK retry loop would only delay switching to the fallback.
 MODEL_MAX_RETRIES = 0
+# Except OpenAI rate limits: one gpt-6-luna run of ~30k-token requests reaches the 200k
+# tokens/min cap within a minute (measured 2026-09-26), and the 429 asks for a few seconds'
+# wait. Falling back then would hand the rest of the run to a far weaker local model, so a
+# 429 is retried after that wait, up to RATE_LIMIT_RETRIES times and RATE_LIMIT_MAX_WAIT_S
+# each; anything longer, and every other error or timeout, still goes to the fallback.
+RATE_LIMIT_RETRIES = 4
+RATE_LIMIT_MAX_WAIT_S = 20.0
+
+
+def _rate_limit_wait(response: httpx2.Response, attempt: int) -> float:
+    """Seconds a 429 asks to wait (``retry-after-ms`` / ``retry-after``), else backoff."""
+    headers = response.headers
+    try:
+        if ms := headers.get("retry-after-ms"):
+            return float(ms) / 1000
+        if seconds := headers.get("retry-after"):
+            return float(seconds)
+    except ValueError:
+        pass
+    return float(2**attempt)
+
+
+class RateLimitRetryTransport(httpx2.AsyncBaseTransport):
+    """Retries only HTTP 429, after the wait the server asks for; passes all else through."""
+
+    def __init__(self, inner: httpx2.AsyncBaseTransport) -> None:
+        self._inner = inner
+
+    async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:
+        for attempt in range(RATE_LIMIT_RETRIES + 1):
+            response = await self._inner.handle_async_request(request)
+            wait = _rate_limit_wait(response, attempt)
+            if (
+                response.status_code != 429
+                or attempt == RATE_LIMIT_RETRIES
+                or wait > RATE_LIMIT_MAX_WAIT_S
+            ):
+                return response
+            await response.aclose()
+            log.info("executor: OpenAI 429, retrying in %.1f s", wait)
+            await asyncio.sleep(wait)
+        raise AssertionError("unreachable")
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
+
 
 # The shell gets an explicit environment instead of inheriting the worker's, which carries
 # DATABASE_URL, DELEGATOR_SHARED_SECRET, ELEVENLABS_* and provider keys. The sandbox then
@@ -106,6 +154,12 @@ SHELL_DENIED_COMMANDS: tuple[str, ...] = ("gh", "glab")
 TOOL_OUTPUT_MAX_CHARS = 10_000
 CLEAR_TOOL_RESULTS_TOKENS = 8_000
 KEEP_TOOL_PAIRS = 3
+# Frontier (non-Ollama) primaries get more room: with the local budget gpt-6-luna lost results
+# to clearing before using them and re-ran the same commands and fetches until REQUEST_LIMIT
+# (measured 2026-09-26: 30 requests, no report). Kept well under the 61k-token request that
+# hit the 200k TPM cap. If a run falls back to a local model mid-way it keeps this budget.
+FRONTIER_CLEAR_TOOL_RESULTS_TOKENS = 20_000
+FRONTIER_KEEP_TOOL_PAIRS = 8
 
 # pydantic-ai prints a multi-line "observability" banner on first run; keep worker logs clean.
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
@@ -146,8 +200,14 @@ Method:
    web search is not needed: if a shell tool is available, inspect it with read-only commands,
    e.g. `sw_vers`, `uname -a`, `sysctl -n machdep.cpu.brand_string hw.memsize hw.ncpu`,
    `system_profiler SPHardwareDataType SPDisplaysDataType`, `df -h`. If no shell tool is
-   offered, say you could not inspect it; never guess. Never change settings, install, delete
-   or kill anything. The shell has no network.
+   offered, say you could not inspect it; never guess. Only read; never change settings,
+   install, delete or kill anything. The shell has no network.
+   Live facts (weather, news, prices) come from the web: search, then web_fetch a page that
+   shows the actual figures (for weather, e.g. https://wttr.in/<city>?format=j1). When the
+   goal names no place, web_fetch https://ipinfo.io/json for this computer's approximate
+   city, use it, and say in the report that the place was inferred.
+   Older tool results are cleared as you go: once a command or page gave you the figures you
+   need, write them into your plan or a file instead of running it again.
 2. Your working folder is this idea's project folder; keep any files you write inside it.
    For temporary files use "$TMPDIR" (e.g. `mktemp "$TMPDIR/x.XXXXXX"`): bare `mktemp` fails.
 3. Write the result from what you actually read or what the commands printed. Do not invent
@@ -210,7 +270,9 @@ def shell_denied_read_roots() -> list[Path]:
     return [Path.home(), repo_root()]
 
 
-def workspace_capabilities(workspace: Path) -> list[AbstractCapability[ExecutorDeps]]:
+def workspace_capabilities(
+    workspace: Path, *, frontier: bool = False
+) -> list[AbstractCapability[ExecutorDeps]]:
     """Researcher + the Coder set, rooted in ``workspace``, with a sandboxed shell.
 
     ``Coder``'s persistent ``Shell`` is swapped for run-scoped tools (``run_command``,
@@ -251,7 +313,13 @@ def workspace_capabilities(workspace: Path) -> list[AbstractCapability[ExecutorD
         # the model server-side, where no output limit can reach them.
         WebFetch[ExecutorDeps](native=False, local=True),
     ]
-    return [*research, *coding, *context_limits()]
+    # A task list for multi-part goals ("check the hardware, then the models, then the
+    # weather"). write_plan only: whole-plan replacement costs one call per update, and every
+    # call counts against the runner's REQUEST_LIMIT. The plan lives in memory for the run, so
+    # a DBOS resume after a worker kill replays tool results but starts with an empty plan;
+    # the model re-plans. Revisit with PostgresPlanStore if resumed runs start losing steps.
+    planning = Planning[ExecutorDeps](tools=["write_plan"])
+    return [*research, planning, *coding, *context_limits(frontier=frontier)]
 
 
 class _TruncateToolOutputs(ToolOutputLimits[ExecutorDeps]):
@@ -261,12 +329,15 @@ class _TruncateToolOutputs(ToolOutputLimits[ExecutorDeps]):
         return None
 
 
-def context_limits() -> list[AbstractCapability[ExecutorDeps]]:
+def context_limits(*, frontier: bool = False) -> list[AbstractCapability[ExecutorDeps]]:
     """Per-result truncation plus clearing of old results (see ``TOOL_OUTPUT_MAX_CHARS``)."""
+    clear_at, keep = (
+        (FRONTIER_CLEAR_TOOL_RESULTS_TOKENS, FRONTIER_KEEP_TOOL_PAIRS)
+        if frontier
+        else (CLEAR_TOOL_RESULTS_TOKENS, KEEP_TOOL_PAIRS)
+    )
     return [
-        ClearToolResults[ExecutorDeps](
-            max_tokens=CLEAR_TOOL_RESULTS_TOKENS, keep_pairs=KEEP_TOOL_PAIRS
-        ),
+        ClearToolResults[ExecutorDeps](max_tokens=clear_at, keep_pairs=keep),
         _TruncateToolOutputs(
             id="executor_tool_output_limits",
             bands=[
@@ -276,8 +347,20 @@ def context_limits() -> list[AbstractCapability[ExecutorDeps]]:
     ]
 
 
+def primary_system(model: AbstractModel) -> str:
+    """Provider of the model a run tries first, through DBOS and fallback wrappers."""
+    while True:
+        if isinstance(model, FallbackModel):
+            model = model.models[0]
+        elif isinstance(wrapped := getattr(model, "wrapped", None), AbstractModel):
+            model = wrapped
+        else:
+            return model.system
+
+
 def _run_capabilities(ctx: RunContext[ExecutorDeps]) -> AbstractCapability[ExecutorDeps]:
-    return CombinedCapability(workspace_capabilities(ctx.deps.workspace))
+    frontier = primary_system(ctx.model) != "ollama"
+    return CombinedCapability(workspace_capabilities(ctx.deps.workspace, frontier=frontier))
 
 
 def executor_capability() -> DynamicCapability[ExecutorDeps]:
@@ -328,7 +411,13 @@ def build_model_from_ref(ref: str, settings: Settings) -> Model:
         if not settings.openai_api_key:
             raise ValueError(f"{ref!r} needs OPENAI_API_KEY")
         openai_client = AsyncOpenAI(
-            api_key=settings.openai_api_key, timeout=MODEL_TIMEOUT, max_retries=MODEL_MAX_RETRIES
+            api_key=settings.openai_api_key,
+            timeout=MODEL_TIMEOUT,
+            max_retries=MODEL_MAX_RETRIES,
+            http_client=httpx2.AsyncClient(
+                transport=RateLimitRetryTransport(httpx2.AsyncHTTPTransport()),
+                timeout=MODEL_TIMEOUT,
+            ),
         )
         # The Responses API, not Chat Completions: gpt-6-luna rejects function tools together
         # with a reasoning effort on /v1/chat/completions (400, verified live 2026-09-26), and

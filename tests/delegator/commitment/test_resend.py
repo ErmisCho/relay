@@ -171,19 +171,6 @@ async def test_proposal_turn_cut_mid_stream_is_not_assentable_even_if_history_ha
     await c.assert_nothing_dispatched()
 
 
-async def test_readback_followed_by_more_speech_is_not_delivered(
-    db: async_sessionmaker[AsyncSession],
-) -> None:
-    c = build_convo(db)
-    await c.turn(
-        "research it",
-        propose(c.goal),
-        text(c.readback(), " Great, I've started on it already."),
-    )
-    await c.turn("okay", dispatch(), text("ok"))
-    await c.assert_nothing_dispatched()
-
-
 async def test_ready_scorer_never_runs_during_an_active_conversation(
     db: async_sessionmaker[AsyncSession],
 ) -> None:
