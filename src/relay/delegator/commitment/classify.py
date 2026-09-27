@@ -254,9 +254,13 @@ asking back, so when in any doubt answer "exploring".
 Labels:
 - directive: a plain instruction or request to do the work, possibly politely phrased \
 ("look into X and write it up", "build me a script that...", "check my disk space", "can you \
-research Y for me", "yes, let's do that, build it" after the assistant suggested it).
+research Y for me", "yes, let's do that, build it" after the assistant suggested it). A \
+question that can only be answered by looking something up or inspecting this computer is a \
+request too ("what's the weather?", "what are my PC's specs?", "which models can my PC run?", \
+"what's the latest on X?").
 - exploring: asking for the assistant's feedback, opinion, ideas or suggestions, weighing \
-options, thinking out loud, asking a question about the topic, or anything hesitant \
+options, thinking out loud, a general question the assistant can answer from what it knows, \
+or anything hesitant \
 ("what do you think about building X?", "maybe we could research Y", "any ideas?", \
 "should I...", "I'm thinking about...").
 
