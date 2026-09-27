@@ -13,10 +13,8 @@ from relay.delegator.app import create_app
 from relay.delegator.contracts import ToolRegistry, TurnContext
 from relay.delegator.llm import ChatDelta, FallbackChatModel
 from relay.delegator.service import APOLOGY_TEXT
-from relay.delegator.wiring import build_registry
 
 from .conftest import ScriptedChatModel, load_request, make_settings, parse_sse, post, text
-from .test_tools import tool_call
 
 
 @pytest.mark.parametrize("stalled_component", ["persistence", "reports"])
@@ -77,26 +75,3 @@ async def test_empty_model_output_tries_fallback_and_never_returns_silence(
     assert len(fallback.calls) == 1
 
 
-@pytest.mark.parametrize("followup", [[], RuntimeError("upstream failed after tool")])
-async def test_direct_hardware_answer_does_not_depend_on_a_followup_model(
-    followup: list[ChatDelta] | Exception, dead_db: async_sessionmaker[AsyncSession]
-) -> None:
-    model = ScriptedChatModel(
-        [
-            [ChatDelta(content="I'll check. "), *tool_call("hardware_capabilities", "{}")],
-            followup,
-        ]
-    )
-    app = create_app(
-        make_settings(),
-        chat_model=model,
-        registry=build_registry(),
-        hooks=[],
-        sessionmaker=dead_db,
-        warm_dbos=False,
-    )
-    chunks = parse_sse((await post(app, load_request())).content)
-    spoken = "".join(c["choices"][0]["delta"].get("content", "") for c in chunks)
-    assert spoken.startswith("I'll check. This machine has")
-    assert "GPU:" in spoken and "memory" in spoken
-    assert len(model.calls) == 1

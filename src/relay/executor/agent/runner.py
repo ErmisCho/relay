@@ -27,6 +27,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from relay.config import get_settings
 from relay.executor import workspace
+from relay.executor.agent import toolbox
 from relay.executor.agent.agent import (
     ExecutorDeps,
     ResearchBrief,
@@ -117,6 +118,20 @@ def workspace_step(idea_id: str) -> str:
     return str(workspace.project_dir(iid, title, get_settings()))
 
 
+@DBOS.step(name="relay.executor.toolbox_in")
+def toolbox_in_step(folder: str) -> list[str]:
+    """Copy saved toolbox scripts into the task folder before the agent runs."""
+    root = toolbox.toolbox_dir(workspace.projects_root(get_settings()))
+    return toolbox.copy_in(root, Path(folder))
+
+
+@DBOS.step(name="relay.executor.toolbox_out")
+def toolbox_out_step(folder: str) -> list[str]:
+    """Save scripts the agent added to or changed in toolbox/ for later tasks."""
+    root = toolbox.toolbox_dir(workspace.projects_root(get_settings()))
+    return toolbox.copy_out(Path(folder), root)
+
+
 def served_model_name(message: ModelResponse) -> str:
     """``<provider>:<model>`` as reported by the response (just the model if no provider)."""
     return (
@@ -204,13 +219,16 @@ def run_executor_task(ctx: TaskContext) -> ArtifactSpec:
         f"(router {route['status']}, {route['latency_ms']} ms) -> {route['model_chosen']}"
         f"{' then ' + route['fallback_model'] if route['fallback_model'] else ''}"
     )
-    workspace = workspace_step(str(ctx.idea_id))
+    folder = workspace_step(str(ctx.idea_id))
+    tools_in = toolbox_in_step(folder)
     timeout_s = executor_timeout_s()
     try:
         with SetWorkflowTimeout(timeout_s):
-            brief = executor_workflow(ctx.goal, ctx.scope_excludes, route["difficulty"], workspace)
+            brief = executor_workflow(ctx.goal, ctx.scope_excludes, route["difficulty"], folder)
     except DBOSAwaitedWorkflowCancelledError as exc:
         raise TimeoutError(f"{ctx.kind} did not finish within {timeout_s:g} s") from exc
+    tools_out = toolbox_out_step(folder)
+    DBOS.logger.info(f"{ctx.kind} task {ctx.task_id}: toolbox had {tools_in}, saved {tools_out}")
     url = render_step(ctx.artifacts_dir, str(ctx.idea_id), str(ctx.task_id), brief)
     served_model = brief.get("served_model")
     DBOS.logger.info(f"{ctx.kind} task {ctx.task_id}: served by {served_model}")

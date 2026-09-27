@@ -9,19 +9,17 @@ from relay.delegator.hooks.reports import ReportsHook
 from relay.delegator.hooks.router import RouterHook
 from relay.delegator.hooks.scope import ScopeHook
 from relay.delegator.hooks.voice import VoiceRulesHook
-from relay.delegator.tools.hardware import HardwareCapabilitiesTool
 from relay.delegator.tools.ideas import FocusIdeaTool, LinkIdeasTool, RecallTool
 from relay.delegator.tools.status import GetStatusTool
-from relay.delegator.tools.weather import GetWeatherTool
 
 
 def build_registry() -> ToolRegistry:
-    """Return the internal tools available to the upstream model."""
+    """The Delegator's tools: conversation and idea memory, proposing and dispatching tasks,
+    and their status. No work tools - the work itself (hardware, weather, research, code)
+    is the executor's, reached through propose_commitment + a spoken yes + dispatch_task."""
     registry = ToolRegistry()
     for tool in (
         GetStatusTool(),
-        HardwareCapabilitiesTool(),
-        GetWeatherTool(),
         RecallTool(),
         FocusIdeaTool(),
         LinkIdeasTool(),

@@ -84,3 +84,8 @@ def project_dir(idea_id: uuid.UUID, title: str, settings: Settings) -> pathlib.P
         raise ValueError(f"project folder {target} is a symlink; refusing to use it")
     target.mkdir(parents=True, exist_ok=True)
     return target
+
+
+def projects_root(settings: Settings) -> pathlib.Path:
+    """``settings.executor_projects_root``, resolved and checked like :func:`project_dir`."""
+    return _checked_root(settings)
