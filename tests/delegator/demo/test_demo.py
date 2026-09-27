@@ -169,6 +169,27 @@ async def test_every_demo_route_needs_the_cookie(db: async_sessionmaker[AsyncSes
         assert (await c.get("/demo/ideas", headers=cookie)).status_code == 200
 
 
+async def test_local_browser_skips_the_passcode_but_the_tunnel_does_not(
+    db: async_sessionmaker[AsyncSession],
+) -> None:
+    # Catches: the local no-passcode shortcut leaking to the public tunnel. ngrok's agent
+    # also connects from 127.0.0.1, so only Host + X-Forwarded-For tell them apart.
+    app = demo_app(db)
+    local = httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1:8010"
+    )
+    async with local as c:
+        assert (await c.get("/demo/auth")).status_code == 204
+        assert (await c.get("/demo/ideas")).status_code == 200
+        tunnelled = {"x-forwarded-for": "203.0.113.7"}
+        assert (await c.get("/demo/ideas", headers=tunnelled)).status_code == 401
+    public = httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://relay.ngrok-free.dev"
+    )
+    async with public as c:
+        assert (await c.get("/demo/ideas")).status_code == 401
+
+
 async def test_every_demo_route_is_404_when_disabled(
     db: async_sessionmaker[AsyncSession],
 ) -> None:
