@@ -63,3 +63,13 @@ async def test_static_prefix_is_stable_and_notes_trail(
     assert second[:3] == [system, {"role": "system", "content": RULES}, turn1[1]]
     assert second[-2:] == [{"role": "system", "content": "note for turn 2"}, turn2[-1]]
     assert sum(m["content"] == RULES for m in second) == 1
+
+
+def test_production_hooks_carry_the_voice_rules() -> None:
+    """Without this hook the agent re-reads old answers or hangs up when the user goes quiet."""
+    from relay.delegator.hooks.voice import VOICE_RULES
+    from relay.delegator.wiring import build_hooks
+
+    settings = make_settings()
+    prefixes = [h.system_prefix(settings) for h in build_hooks() if hasattr(h, "system_prefix")]
+    assert VOICE_RULES in prefixes

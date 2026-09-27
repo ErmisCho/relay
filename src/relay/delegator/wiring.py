@@ -8,6 +8,7 @@ from relay.delegator.hooks.ideas import IdeaSummaryHook
 from relay.delegator.hooks.reports import ReportsHook
 from relay.delegator.hooks.router import RouterHook
 from relay.delegator.hooks.scope import ScopeHook
+from relay.delegator.hooks.voice import VoiceRulesHook
 from relay.delegator.tools.hardware import HardwareCapabilitiesTool
 from relay.delegator.tools.ideas import FocusIdeaTool, LinkIdeasTool, RecallTool
 from relay.delegator.tools.status import GetStatusTool
@@ -33,4 +34,11 @@ def build_registry() -> ToolRegistry:
 
 def build_hooks() -> list[TurnHook]:
     """Return turn hooks in safety-first order."""
-    return [ScopeHook(), CommitmentHook(), ReportsHook(), IdeaSummaryHook(), RouterHook()]
+    return [
+        ScopeHook(),
+        CommitmentHook(),
+        ReportsHook(),
+        IdeaSummaryHook(),
+        RouterHook(),
+        VoiceRulesHook(),
+    ]
