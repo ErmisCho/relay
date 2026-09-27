@@ -85,6 +85,7 @@ def test_apply_refuses_dev_secret_and_unreachable_url(url: str, secret: str) -> 
 
 def test_existing_secret_is_found_on_a_later_page() -> None:
     script = _load_script()
+    name = "relay_delegator_shared_secret_mine"
 
     class Secret:
         def __init__(self, name: str, secret_id: str) -> None:
@@ -100,10 +101,10 @@ def test_existing_secret_is_found_on_a_later_page() -> None:
             self.created = 0
 
         def list(self, *, search: str, cursor: str | None) -> Page:
-            assert search == script.SECRET_NAME
+            assert search == name
             if cursor is None:
-                return Page([Secret(script.SECRET_NAME + "_old", "wrong")], "page2")
-            return Page([Secret(script.SECRET_NAME, "sec_2")], None)
+                return Page([Secret(name + "_old", "wrong")], "page2")
+            return Page([Secret(name, "sec_2")], None)
 
         def update(self, secret_id: str, *, name: str, value: str) -> None:
             self.updated.append(secret_id)
@@ -114,7 +115,7 @@ def test_existing_secret_is_found_on_a_later_page() -> None:
     secrets = Secrets()
     client = type("C", (), {"conversational_ai": type("A", (), {"secrets": secrets})()})()
 
-    assert script._ensure_secret(client, "v") == "sec_2"
+    assert script._ensure_secret(client, name, "v") == "sec_2"
     assert secrets.updated == ["sec_2"] and secrets.created == 0
 
 
@@ -144,3 +145,17 @@ def test_backchannels_do_not_interrupt_and_turns_are_patient() -> None:
     assert turn is not None and turn.turn_eagerness == "patient"
     assert {"yeah", "mhm", "okay"} <= set(turn.interruption_ignore_terms or [])
     assert turn.merge_with_default_ignore_terms is True
+
+
+def test_each_tunnel_gets_its_own_workspace_secret() -> None:
+    """Live 2026-09-27: two developers on one ElevenLabs workspace overwrote each other's
+    Delegator secret on every --apply, because the secret had one fixed name."""
+    script = _load_script()
+
+    def name(url: str) -> str:
+        return str(script.secret_name(Settings(_env_file=None, delegator_public_url=url)))  # type: ignore[call-arg]
+
+    mine = name("https://geology-hardiness-cage.ngrok-free.dev")
+    assert mine == "relay_delegator_shared_secret_geology_hardiness_cage_ngrok_free_dev"
+    assert name("https://capital-rhyme-manmade.ngrok-free.dev/") != mine
+    assert name("https://geology-hardiness-cage.ngrok-free.dev/v1") == mine
