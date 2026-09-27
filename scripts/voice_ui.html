@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>relay voice</title>
+<style>
+  :root {
+    --bg: #111315; --panel: #1a1d20; --line: #2a2e33; --text: #e6e6e6; --muted: #8a9096;
+    --accent: #4fb286; --user: #6aa9ff; --warn: #e0b04f; --err: #e5675f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; height: 100vh; background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, sans-serif; display: grid; grid-template-columns: 1fr 1.2fr;
+  }
+  section { display: flex; flex-direction: column; min-height: 0; padding: 20px; }
+  section + section { border-left: 1px solid var(--line); background: var(--panel); }
+  h2 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em;
+       color: var(--muted); font-weight: 600; }
+  .call { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+  #orb {
+    width: 72px; height: 72px; border-radius: 50%; background: var(--line);
+    transition: transform .3s, background .3s; flex: none;
+  }
+  #orb.listening { background: var(--user); }
+  #orb.speaking { background: var(--accent); transform: scale(1.12); }
+  button {
+    font: inherit; font-weight: 600; padding: 10px 20px; border-radius: 999px; border: 0;
+    background: var(--accent); color: #0b1a13; cursor: pointer;
+  }
+  button.stop { background: var(--err); color: #1a0b0b; }
+  button:disabled { opacity: .5; cursor: default; }
+  #status { color: var(--muted); }
+  #transcript, #logs { flex: 1; overflow-y: auto; min-height: 0; }
+  .msg { margin: 0 0 10px; padding: 8px 12px; border-radius: 10px; max-width: 90%; }
+  .msg.user { background: #1d2a3a; margin-left: auto; }
+  .msg.agent { background: #1b2a23; }
+  .msg small { display: block; color: var(--muted); font-size: 11px; }
+  #logs { font: 12px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap;
+          word-break: break-word; }
+  .log { padding: 1px 0; border-bottom: 1px solid #202428; }
+  .log.tool { color: var(--accent); }
+  .log.turn { color: var(--user); }
+  .log.warn { color: var(--warn); }
+  .log.err { color: var(--err); }
+  .log.dim { color: var(--muted); }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  @media (max-width: 800px) {
+    body { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; height: auto; min-height: 100vh; }
+    section + section { border-left: 0; border-top: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<section>
+  <h2>Voice</h2>
+  <div class="call">
+    <div id="orb"></div>
+    <div>
+      <button id="toggle">Start call</button>
+      <div id="status">Not connected</div>
+    </div>
+  </div>
+  <div id="transcript"></div>
+  <div class="hint">Try: "What are my PC specs? Oh, by the way, what's the weather in Berlin?"</div>
+</section>
+<section>
+  <h2>Delegator log</h2>
+  <div id="logs"></div>
+</section>
+<script type="module">
+  import { Conversation } from "https://cdn.jsdelivr.net/npm/@elevenlabs/client@1.25.0/+esm";
+
+  const $ = (id) => document.getElementById(id);
+  const orb = $("orb"), toggle = $("toggle"), status = $("status");
+  let conversation = null;
+
+  function say(role, text) {
+    const div = document.createElement("div");
+    div.className = `msg ${role}`;
+    const who = document.createElement("small");
+    who.textContent = role === "user" ? "You" : "relay";
+    div.append(who, text);
+    $("transcript").append(div);
+    div.scrollIntoView({ block: "end" });
+  }
+
+  function setStatus(text) { status.textContent = text; }
+
+  async function start() {
+    toggle.disabled = true;
+    setStatus("Asking for microphone...");
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      setStatus("Connecting...");
+      const res = await fetch("/signed-url");
+      if (!res.ok) throw new Error(await res.text());
+      const { signed_url } = await res.json();
+      conversation = await Conversation.startSession({
+        signedUrl: signed_url,
+        onConnect: () => setStatus("Connected - talk now"),
+        onDisconnect: (d) => stop(`Disconnected (${d.reason})`),
+        onError: (message) => setStatus(`Error: ${message}`),
+        onMessage: ({ message, role }) => say(role, message),
+        onModeChange: ({ mode }) => { orb.className = mode; },
+      });
+      toggle.textContent = "End call";
+      toggle.className = "stop";
+    } catch (e) {
+      setStatus(`Could not start: ${e.message || e}`);
+      conversation = null;
+    }
+    toggle.disabled = false;
+  }
+
+  async function stop(reason = "Call ended") {
+    const c = conversation;
+    conversation = null;
+    if (c) await c.endSession().catch(() => {});
+    orb.className = "";
+    toggle.textContent = "Start call";
+    toggle.className = "";
+    setStatus(reason);
+  }
+
+  toggle.addEventListener("click", () => (conversation ? stop() : start()));
+
+  const logs = $("logs");
+  const kind = (line) =>
+    / tool /.test(line) ? "tool" :
+    /delegator turn/.test(line) ? "turn" :
+    /ERROR|Traceback| 401 /.test(line) ? "err" :
+    /WARNING|falling back/.test(line) ? "warn" :
+    /INFO:\s+(127\.0\.0\.1|::1)|"POST/.test(line) ? "dim" : "";
+  new EventSource("/logs").onmessage = (e) => {
+    const stick = logs.scrollTop + logs.clientHeight >= logs.scrollHeight - 20;
+    const div = document.createElement("div");
+    div.className = `log ${kind(e.data)}`;
+    div.textContent = e.data;
+    logs.append(div);
+    if (stick) logs.scrollTop = logs.scrollHeight;
+  };
+</script>
+</body>
+</html>
