@@ -181,7 +181,9 @@ Commitment protocol (starting background work):
 done), call propose_commitment with the goal, what is explicitly excluded and the artifact \
 kind. Do not just say you will do it.
 - propose_commitment speaks its confirmation question to the user itself and ends your turn, \
-so say nothing before calling it. Then wait for the user's answer.
+so do not announce or describe the handoff before calling it. When the same message also asks \
+something you can answer yourself (advice, an opinion, an explanation), put that one-sentence \
+answer in propose_commitment's answer_first; it is spoken before the question. Then wait.
 - Call dispatch_task only when a system note tells you the user agreed. The server decides; if \
 it rejects the call, do not retry and do not pretend the work started.
 - Never claim work has started, is running or will be done unless dispatch_task succeeded.
@@ -229,7 +231,8 @@ class ProposeCommitmentTool:
     description = (
         "Propose handing the current idea to a background worker. Call this instead of saying "
         "you will do the work. Nothing starts until the user explicitly agrees to the "
-        "confirmation question this tool speaks to them itself; say nothing before calling it."
+        "confirmation question this tool speaks to them itself. Do not describe the handoff "
+        "yourself; answer any other part of the message in answer_first."
     )
     parameters: dict[str, Any] = {
         "type": "object",
@@ -252,6 +255,17 @@ class ProposeCommitmentTool:
                     "Terminal artifact: 'document' for looking into, checking or inspecting "
                     "something and writing a report; 'pull_request' for making or changing "
                     "code in a project."
+                ),
+            },
+            "answer_first": {
+                "type": "string",
+                "description": (
+                    "Optional. One short spoken sentence answering any part of the user's "
+                    "message that needs no handoff (advice, an opinion, an explanation), e.g. "
+                    "'Singing starts with breath control and a weekly lesson.' Spoken before "
+                    "the confirmation question. Omit when the whole message is the handoff. "
+                    "Never facts about this computer, the weather or other live data, not even "
+                    "from earlier in the conversation: those come only from the fresh check."
                 ),
             },
         },
@@ -288,6 +302,7 @@ class ProposeCommitmentTool:
                 "what should be left out, then call propose_commitment again."
             )
         readback = build_readback(goal, excludes, decision.artifact_kind)
+        answer = clean_field(args.get("answer_first"))[:300]
         # A newer proposal replaces the older one; any assent recorded for it is void.
         state.pending_proposal = PendingProposal(
             goal=goal,
@@ -325,7 +340,9 @@ class ProposeCommitmentTool:
                 f'Proposal recorded, NOT started. The confirmation question "{readback}" was '
                 "spoken to the user; wait for their answer."
             ),
-            speak=readback,
+            # The read-back stays exactly what the yes answers; the other part of the user's
+            # message is answered in front of it (models rarely speak alongside a tool call).
+            speak=f"{answer}. {readback}" if answer else readback,
         )
 
 

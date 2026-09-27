@@ -316,8 +316,12 @@ def build_convo(
     )
 
 
-def propose(goal: str, excludes: str = "pricing", artifact: str = "document") -> list[ChatDelta]:
+def propose(
+    goal: str, excludes: str = "pricing", artifact: str = "document", answer_first: str = ""
+) -> list[ChatDelta]:
     args = {"goal": goal, "scope_excludes": excludes, "artifact_kind": artifact}
+    if answer_first:
+        args["answer_first"] = answer_first
     return tool_call("propose_commitment", json.dumps(args))
 
 
