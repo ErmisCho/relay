@@ -121,25 +121,16 @@ def gpu_description() -> str:
 
 
 def recommend_models(total_gb: float) -> str:
-    """One spoken sentence recommending local models for ``total_gb`` of memory.
+    """One short spoken sentence recommending a local model for ``total_gb`` of memory.
 
-    Tiers are deliberately coarse: the point is a usable default, not a benchmark.
+    Kept to one sentence on purpose: in a compound turn ("specs? and the weather?") a
+    longer recommendation used up the reply and the model dropped the other answer.
     """
     if total_gb >= 32:
-        return (
-            "You have plenty of headroom - qwen2.5:7b-instruct is a solid default for "
-            "general turns, with llama3.2:3b as a faster fallback if latency ever matters more "
-            "than quality."
-        )
+        return "It can comfortably run a 7B local model like qwen2.5:7b-instruct."
     if total_gb >= 16:
-        return (
-            "qwen2.5:3b-instruct or llama3.2:3b both fit comfortably; a 7B model will run but "
-            "leaves less headroom for everything else."
-        )
-    return (
-        "Memory is tight for a good local experience - llama3.2:1b or gemma3:1b are the "
-        "realistic options; anything larger risks swapping."
-    )
+        return "It fits a 3B local model like qwen2.5:3b-instruct."
+    return "Only a small local model like llama3.2:1b fits well."
 
 
 class HardwareCapabilitiesTool:
