@@ -1,3 +1,7 @@
+# One shared database for every checkout/worktree: without a fixed name, Compose
+# derives the project from the folder and a second copy fights over port 55432.
+name: relay
+
 services:
   postgres:
     image: postgres:16
